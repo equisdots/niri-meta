@@ -71,10 +71,10 @@ cmd_setup() {
         cmd_desktop niri
     fi
 
-    if [[ "$do_system" -eq 1 ]]; then
-        cmd_system "${args[@]}" || warn "system phase failed; the payload is installed"
+    if [[ "$do_system" -eq 1 ]] || ! have niri; then
+        cmd_system --apply || warn "system phase failed; the payload is installed"
     else
-        note "system integration is deferred; run 'dotsniri system' when ready"
+        note "niri is present; run 'dotsniri system' to (re)install packages"
     fi
     ok "setup finished — select the niri session at the login screen"
 }

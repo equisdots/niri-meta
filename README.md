@@ -41,7 +41,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/equisdots/niri-meta/main/bin
 | `uninstall` | reverse the deploy (overlay, session file, wrappers); clones kept |
 | `desktop <niri\|hyprland\|both>` | default session, `settings.json` mirror, overlay toggle |
 | `login <install\|remove\|status>` | install the DM session entry system-wide (via `niri-login`, sudo) |
-| `system [--apply]` | distro/system hook (deferred; see `system/README.md`) |
+| `system [--apply]` | install distro packages (niri, portals, ...) via `system/install-<distro>.sh` |
 | `version` | print the `dotsniri` version |
 | `help` | usage |
 

@@ -191,6 +191,10 @@ cmd_doctor() {
     chk_bin rofi
     chk_bin jq
 
+    if ! have niri; then
+        note "niri is not installed; run 'dotsniri system --apply' to install it"
+    fi
+
     msg "binaries (optional)"
     local c
     for c in grim slurp satty hyprpicker cargo mpvpaper; do

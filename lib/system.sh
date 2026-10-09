@@ -23,6 +23,30 @@ distro_id() {
     printf '%s' "$id"
 }
 
+# Candidate template ids: the distro ID first, then each token of ID_LIKE, so
+# ID=x + ID_LIKE=arch resolves to install-arch.sh.
+distro_ids() {
+    local id="" like=""
+    if [[ -r /etc/os-release ]]; then
+        id="$( set +u; . /etc/os-release 2>/dev/null; printf '%s' "${ID:-}" )"
+        like="$( set +u; . /etc/os-release 2>/dev/null; printf '%s' "${ID_LIKE:-}" )"
+    fi
+    [[ -n "$id" ]] && printf '%s\n' "$id"
+    local t
+    for t in $like; do printf '%s\n' "$t"; done
+}
+
+# Resolve the template path for this distro (ID then ID_LIKE), or empty.
+system_template_for_distro() {
+    local cand c
+    while IFS= read -r cand; do
+        [[ -n "$cand" ]] || continue
+        c="$ROOT_DIR/system/install-$cand.sh"
+        [[ -f "$c" ]] && { printf '%s' "$c"; return 0; }
+    done < <(distro_ids)
+    return 1
+}
+
 system_templates() {
     find "$ROOT_DIR/system" -maxdepth 1 -name 'install-*.sh' 2>/dev/null | sort
 }
@@ -38,18 +62,18 @@ cmd_system() {
 
     local id tpl
     id="$(distro_id)"
-    msg "system integration: deferred hook (distro: $id)"
+    msg "system integration: distro hook (distro: $id)"
     note "the core stays distro-agnostic; packages live in system/ templates"
 
-    tpl="$(find "$ROOT_DIR/system" -maxdepth 1 -name "install-$id.sh" 2>/dev/null | head -1)"
+    tpl="$(system_template_for_distro || true)"
     if [[ -z "$tpl" ]]; then
         note "available templates:"
         local f
         while IFS= read -r f; do
             printf '   - %s\n' "$(basename "$f")"
         done < <(system_templates)
-        warn "no system/install-$id.sh template for this distro"
-        note "copy or adapt one as system/install-$id.sh and re-run 'dotsniri system --apply'"
+        warn "no matching system/install-<distro>.sh template for this distro"
+        note "copy or adapt one as system/install-<distro>.sh and re-run 'dotsniri system --apply'"
         return 0
     fi
 

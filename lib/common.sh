@@ -115,7 +115,7 @@ Commands:
   uninstall          reverse the deploy (clones and config are kept)
   desktop <mode>     select the default session: niri | hyprland | both
   login <action>     manage the DM session entry: install | remove | status
-  system             distro/system integration hook (deferred)
+  system [--apply]   install distro packages (niri, portals, ...) via templates
   version            print the dotsniri version
   help               show this help
 
@@ -172,9 +172,10 @@ EOF
             ;;
         system) cat <<'EOF'
 dotsniri system [--apply]
-  Detects the distro and prints the matching system/install-<distro>.sh
-  template. With --apply it runs that template (which may use sudo). Without a
-  template it lists what is available. The core stays distro-agnostic.
+  Resolves the distro (ID, then ID_LIKE) to a system/install-<distro>.sh
+  template and installs the niri stack packages (compositor, portals, shell
+  tools). Without --apply it only prints the plan. Arch and Fedora templates
+  ship as examples; the core stays distro-agnostic.
 EOF
             ;;
         *) usage ;;
