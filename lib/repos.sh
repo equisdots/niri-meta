@@ -142,17 +142,24 @@ pull_repo() {
     fi
 }
 
-# ensure_repo — clone if missing; own repos are updated, shared repos are left
-# exactly as they are (read-only contract).
+# ensure_repo — clone if missing; own repos are updated. The shared `shell` and
+# `nyx` bases are DEPLOYED by dotsniri (the overlays sit on top of them), so they
+# must stay current and are pulled too. The remaining shared repos are read-only
+# (owned by `dots`).
 ensure_repo() {
     local name="$1" kind
     kind="$(repo_kind "$name")"
     if [[ -d "$(repo_path "$name")/.git" ]]; then
-        if [[ "$kind" == own ]]; then
-            pull_repo "$name"
-        else
-            note "$name: shared clone present (read-only; updated by 'dots')"
-        fi
+        case "$name" in
+            shell|nyx) pull_repo "$name" ;;
+            *)
+                if [[ "$kind" == own ]]; then
+                    pull_repo "$name"
+                else
+                    note "$name: shared clone present (read-only; updated by 'dots')"
+                fi
+                ;;
+        esac
     else
         clone_repo "$name"
     fi
@@ -191,14 +198,9 @@ cmd_install() {
 
 cmd_update() {
     require git
-    local name kind
+    local name
     while IFS= read -r name; do
-        kind="$(repo_kind "$name")"
-        if [[ "$kind" == own ]]; then
-            pull_repo "$name"
-        else
-            note "$name: shared clone is read-only for dotsniri (use 'dots update')"
-        fi
+        ensure_repo "$name"
     done < <(repos_all)
     cmd_deploy
 }
