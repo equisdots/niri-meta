@@ -104,6 +104,21 @@ check_shell_base() {
     fi
 }
 
+check_login_entry() {
+    local d found=0
+    for d in /usr/share/wayland-sessions /usr/local/share/wayland-sessions \
+             "${XDG_DATA_HOME:-$HOME/.local/share}/wayland-sessions"; do
+        if [[ -f "$d/niri.desktop" ]]; then
+            ok "niri session entry: $d/niri.desktop"
+            found=1
+        fi
+    done
+    if [[ "$found" -eq 0 ]]; then
+        warn "no niri session entry (run: dotsniri login install)"
+        DOCTOR_FAIL=1
+    fi
+}
+
 check_path() {
     case ":$PATH:" in
         *":$HOME/.local/bin:"*) ok "$HOME/.local/bin in PATH" ;;
@@ -192,6 +207,7 @@ cmd_doctor() {
     msg "deploy"
     check_shell_base
     check_overlay
+    check_login_entry
     check_path
     check_settings_compositor
 

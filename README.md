@@ -40,6 +40,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/equisdots/niri-meta/main/bin
 | `reset` | remove the niri deploy, drop the own clones, reinstall from origin/main |
 | `uninstall` | reverse the deploy (overlay, session file, wrappers); clones kept |
 | `desktop <niri\|hyprland\|both>` | default session, `settings.json` mirror, overlay toggle |
+| `login <install\|remove\|status>` | install the DM session entry system-wide (via `niri-login`, sudo) |
 | `system [--apply]` | distro/system hook (deferred; see `system/README.md`) |
 | `version` | print the `dotsniri` version |
 | `help` | usage |
@@ -59,6 +60,7 @@ pulls or modifies an existing shared clone.
 | own | [niri](https://github.com/equisdots/niri) | niri compositor config (`config.kdl` + modules + scripts) |
 | own | [niri-shell](https://github.com/equisdots/niri-shell) | shell overlay (Niri backend, niri scripts) merged into the shared shell |
 | own | [nyx-niri](https://github.com/equisdots/nyx-niri) | nyx mascot island overlay (compositor-neutral) merged into the shared shell |
+| own | [niri-login](https://github.com/equisdots/niri-login) | Wayland session entry installer (so DMs list "Niri") |
 | own | niri-meta | this meta installer |
 | shared | [shell](https://github.com/equisdots/shell) | Quickshell desktop UI (base for the niri-shell overlay) |
 | shared | [nyx](https://github.com/equisdots/nyx) | mascot island base (base for the nyx-niri overlay) |
@@ -88,6 +90,7 @@ wallpapers, shell). Only the compositor config moves, to `~/.config/niri`.
 | `davincix` | `~/.local/bin/davincix` | only installed if missing |
 | `timex` | `~/.local/bin/timex` + `.../quickshell/ui/timex/` | only installed if missing |
 | `login` | system SDDM theme | handled by the system hook |
+| `login` | system `wayland-sessions/niri.desktop` | installed by `dotsniri login` (sudo); skipped if the distro provides one |
 | `background` | none | consumed by davincix / xwww at runtime |
 | this repo | `~/.local/bin/dotsniri` | always refreshed |
 

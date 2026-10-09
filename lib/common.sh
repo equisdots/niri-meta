@@ -114,6 +114,7 @@ Commands:
   reset              purge the niri deploy and reinstall from origin/main
   uninstall          reverse the deploy (clones and config are kept)
   desktop <mode>     select the default session: niri | hyprland | both
+  login <action>     manage the DM session entry: install | remove | status
   system             distro/system integration hook (deferred)
   version            print the dotsniri version
   help               show this help
@@ -145,6 +146,14 @@ dotsniri doctor [--self-test]
   Checks binaries, clones, deployed files and the niri config. Each item is
   reported as ok / warn / fail. --self-test syntax-checks the toolkit
   (bash -n) and works even when niri is not installed.
+EOF
+            ;;
+        login) cat <<'EOF'
+dotsniri login <install|remove|status>
+  Installs the niri Wayland session entry into a system-scanned directory
+  (/usr/local/share/wayland-sessions or /usr/share/wayland-sessions) with sudo,
+  so display managers list "Niri". Skips gracefully when the distro already
+  provides niri.desktop.
 EOF
             ;;
         install|deploy|update) cat <<'EOF'

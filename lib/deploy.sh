@@ -93,6 +93,7 @@ deploy_repo() {
         niri)       deploy_niri "$path" ;;
         niri-shell) deploy_niri_shell "$path" ;;
         nyx-niri)   deploy_nyx_niri "$path" ;;
+        niri-login) note "niri-login: session entry is installed by 'dotsniri login' (needs sudo)" ;;
         shell)      deploy_shell "$path" ;;
         nyx)        deploy_nyx "$path" ;;
         palettes)   deploy_palettes "$path" ;;

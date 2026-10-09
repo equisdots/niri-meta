@@ -84,37 +84,16 @@ system_session_present() {
     return 1
 }
 
+# The session entry lives in a system wayland-sessions directory (installed by
+# the niri-login repo), because display managers do not scan the user-local
+# path. See lib/login.sh.
 install_session_file() {
-    if system_session_present; then
-        note "a system niri.desktop is already present; not adding a user session"
-        return 0
-    fi
-    local f
-    f="$(session_file)"
-    run mkdir -p "$WAYLAND_SESSIONS"
-    if (( DRY_RUN )); then
-        msg "[dry-run] write $f"
-        return 0
-    fi
-    cat > "$f" <<'EOF'
-[Desktop Entry]
-Name=Niri
-Comment=equisdots niri session
-Exec=niri-session
-Type=Application
-DesktopNames=niri
-EOF
-    ok "user session -> $f"
+    ensure_login_entry
 }
 
-# Remove the session file only when dotsniri wrote it (comment marker).
+# Remove the session file only when niri-login created it (marker-checked).
 remove_session_file() {
-    local f
-    f="$(session_file)"
-    [[ -f "$f" ]] || return 0
-    grep -q "equisdots niri session" "$f" 2>/dev/null || return 0
-    run rm -f "$f"
-    ok "user session removed"
+    remove_login_entry
 }
 
 # ── Command ─────────────────────────────────────────────────────────────────

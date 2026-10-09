@@ -50,6 +50,8 @@ fi
 . "$ROOT_DIR/lib/deploy.sh"
 # shellcheck source=../lib/desktop.sh
 . "$ROOT_DIR/lib/desktop.sh"
+# shellcheck source=../lib/login.sh
+. "$ROOT_DIR/lib/login.sh"
 # shellcheck source=../lib/doctor.sh
 . "$ROOT_DIR/lib/doctor.sh"
 # shellcheck source=../lib/system.sh
@@ -84,6 +86,7 @@ main() {
         reset)      shift; cmd_reset "$@" ;;
         uninstall)  shift; cmd_uninstall "$@" ;;
         desktop)    shift; cmd_desktop "$@" ;;
+        login)      shift; cmd_login "$@" ;;
         system)     shift; cmd_system "$@" ;;
         version)    cmd_version ;;
         help)       usage ;;

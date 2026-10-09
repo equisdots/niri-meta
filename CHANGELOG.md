@@ -8,6 +8,11 @@ All notable changes to `niri-meta` are documented here. The format follows
 
 ### Added
 
+- Own repo `niri-login` and the `login` command (`install|remove|status`) to
+  place the niri Wayland session entry in a **system-scanned**
+  `wayland-sessions` directory (with sudo). Display managers do not scan the
+  user-local path, which is why the entry did not appear before. `install` and
+  `desktop` now ensure the entry, and `doctor` checks for it.
 - Own repo `nyx-niri` (compositor-neutral mascot island overlay) and its
   conditional deploy into `.../quickshell/ui/nyx`.
 - Shared repos `shell` and `nyx` are now cloned and their base deployed, plus a

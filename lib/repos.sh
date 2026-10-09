@@ -20,6 +20,7 @@ REPO_SPECS=(
     "own|equisdots|niri"
     "own|equisdots|niri-shell"
     "own|equisdots|nyx-niri"
+    "own|equisdots|niri-login"
     "shared|equisdots|shell"
     "shared|equisdots|nyx"
     "shared|equisdots|palettes"
@@ -167,6 +168,7 @@ cmd_install() {
         [[ -d "$(repo_path "$name")" ]] && n=$((n + 1))
     done < <(repos_all)
     cmd_deploy
+    ensure_login_entry
     ok "install finished ($n/${#REPO_SPECS[@]} repos present)"
 }
 
