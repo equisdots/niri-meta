@@ -167,7 +167,24 @@ cmd_install() {
         ensure_repo "$name" || true
         [[ -d "$(repo_path "$name")" ]] && n=$((n + 1))
     done < <(repos_all)
+
+    # Fresh niri-stack install: default to the niri session before deploying so
+    # the compositor overlays are applied. Without this the shell keeps the
+    # hardcoded Hyprland backend and breaks under niri (a gray screen with only
+    # the cursor). An existing choice (e.g. set by a parallel `dots`) is kept.
+    if [[ ! -f "$DESKTOP_STATE" ]]; then
+        set_desktop_state niri || true
+    fi
+
     cmd_deploy
+    [[ -f "$DESKTOP_STATE" ]] && { set_settings_compositor "$(desktop_current)" || true; }
+
+    # Bootstrap the compositor when missing so `dotsniri install` alone is
+    # sufficient on a fresh machine.
+    if ! have niri; then
+        cmd_system --apply || warn "system phase failed; install niri manually and re-run 'dotsniri install'"
+    fi
+
     ensure_login_entry
     ok "install finished ($n/${#REPO_SPECS[@]} repos present)"
 }

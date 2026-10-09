@@ -329,7 +329,7 @@ overlay_apply() {
         count=$((count + 1))
     done < <(cd "$src" && find . \( -type f -o -type l \) \
         ! -path './.git/*' ! -path './docs/*' \
-        ! -name '.gitignore' ! -name 'README.md' ! -name 'LICENSE' -print0)
+        ! -name '.gitignore' ! -name 'LICENSE' ! -name '*.md' -print0)
 
     find "$QS" -name '*.sh' -exec chmod +x {} + 2>/dev/null || true
     ok "$name overlay applied ($count files)"
