@@ -129,6 +129,18 @@ check_login_entry() {
     fi
 }
 
+check_notification_daemon() {
+    local p found=0
+    for p in mako dunst; do
+        if pgrep -x "$p" >/dev/null 2>&1; then
+            warn "$p is running: it serves notifications instead of the shell (palette not applied). Stop it."
+            DOCTOR_FAIL=1
+            found=1
+        fi
+    done
+    [[ "$found" -eq 0 ]] && ok "no competing notification daemon (the shell owns notifications)"
+}
+
 check_path() {
     case ":$PATH:" in
         *":$HOME/.local/bin:"*) ok "$HOME/.local/bin in PATH" ;;
@@ -222,6 +234,7 @@ cmd_doctor() {
     check_shell_base
     check_overlay
     check_login_entry
+    check_notification_daemon
     check_path
     check_settings_compositor
 
