@@ -102,6 +102,16 @@ check_shell_base() {
         warn "shell missing at $QS (run: dotsniri install)"
         DOCTOR_FAIL=1
     fi
+    # When niri is the selected session the neutral backend must be deployed,
+    # otherwise the shell falls back to the Hyprland backend and breaks.
+    if desktop_includes_niri; then
+        if [[ -f "$QS/core/compositors/Niri.qml" ]]; then
+            ok "niri shell backend present (core/compositors/Niri.qml)"
+        else
+            warn "niri shell backend missing; run 'dotsniri install' (overlays not applied)"
+            DOCTOR_FAIL=1
+        fi
+    fi
 }
 
 check_login_entry() {
