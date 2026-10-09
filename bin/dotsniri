@@ -38,6 +38,12 @@ if [[ ! -r "$ROOT_DIR/lib/common.sh" ]]; then
             printf 'error: bootstrap clone failed (network? git?)\n' >&2
             exit 1
         }
+    else
+        # Keep the bootstrap clone current. The one-liner otherwise re-runs a
+        # stale checkout (the installed wrapper does not self-update either).
+        git -C "$__target" fetch --depth 1 origin main --quiet 2>/dev/null \
+            && git -C "$__target" reset --hard FETCH_HEAD --quiet 2>/dev/null \
+            || true
     fi
     exec "$__target/bin/dotsniri" "$@"
 fi
