@@ -28,9 +28,27 @@ set -euo pipefail
 cmd_deploy() {
     require rsync
     local name
+
+    # Phase 1: shared base repos that the overlays sit on top of. Deploying the
+    # Quickshell shell and the nyx base makes dotsniri standalone (no `dots`
+    # run required) while remaining idempotent and read-only toward `dots`.
+    deploy_repo shell
+    deploy_repo nyx
+    deploy_settings_seed
+
+    # Phase 2: the niri payload and the remaining shared repos (overlays are
+    # handled last so a base deploy can never wipe them).
     while IFS= read -r name; do
+        case "$name" in
+            shell|nyx|niri-shell|nyx-niri) continue ;;
+        esac
         deploy_repo "$name"
     done < <(repos_all)
+
+    # Phase 3: overlays last.
+    deploy_repo niri-shell
+    deploy_repo nyx-niri
+
     ok "deploy finished"
 }
 
@@ -75,6 +93,8 @@ deploy_repo() {
         niri)       deploy_niri "$path" ;;
         niri-shell) deploy_niri_shell "$path" ;;
         nyx-niri)   deploy_nyx_niri "$path" ;;
+        shell)      deploy_shell "$path" ;;
+        nyx)        deploy_nyx "$path" ;;
         palettes)   deploy_palettes "$path" ;;
         theme-sync) deploy_wrapper theme-sync "$path/theme-sync.sh" ;;
         davincix)   deploy_wrapper davincix "$path/davincix.sh" ;;
@@ -164,6 +184,52 @@ deploy_palettes() {
         run cp -f "$path/community"/*.json "$PALETTES/community/" 2>/dev/null || true
     fi
     ok "palettes deployed"
+}
+
+# Mirror the shared `shell` deploy from `dots` so dotsniri is standalone. The
+# dock/ (palettes) and ui/nyx/ subtrees are excluded, because they are owned by
+# the palette deploy and the nyx deploy respectively.
+deploy_shell() {
+    local path="$1"
+    if [[ ! -d "$path" ]]; then
+        warn "shell: clone missing; run 'dotsniri install'"
+        return 0
+    fi
+    msg "shell: quickshell -> $QS"
+    run mkdir -p "$QS"
+    run rsync -a --delete --exclude '.git*' --exclude 'docs/' \
+        --exclude 'dock/' --exclude 'ui/nyx/' "$path/" "$QS/"
+    ok "shell deployed"
+}
+
+# Shared nyx base (mascots, species, dock). Fully managed into $QS/ui/nyx; the
+# nyx-niri overlay then merges its compositor-neutral files on top.
+deploy_nyx() {
+    local path="$1"
+    if [[ ! -d "$path" ]]; then
+        warn "nyx: clone missing; run 'dotsniri install'"
+        return 0
+    fi
+    msg "nyx: mascots -> $QS/ui/nyx"
+    run mkdir -p "$QS/ui/nyx"
+    run rsync -a --delete --exclude '.git*' --exclude 'docs/' "$path/" "$QS/ui/nyx/"
+    ok "nyx deployed"
+}
+
+# Seed settings.json from the vendored default only when absent. Never
+# overwrite user config, and never perform the defaults+overrides merge that
+# `dots` owns.
+deploy_settings_seed() {
+    local def="$ROOT_DIR/share/default_settings.json"
+    [[ -f "$def" ]] || return 0
+    if [[ ! -f "$HYPR/default_settings.json" ]]; then
+        run mkdir -p "$HYPR"
+        run cp "$def" "$HYPR/default_settings.json"
+    fi
+    if [[ ! -f "$HYPR/settings.json" ]]; then
+        run cp "$def" "$HYPR/settings.json"
+        ok "settings.json seeded from share/default_settings.json"
+    fi
 }
 
 # Install a shared engine wrapper only when it is missing, so a parallel `dots`

@@ -6,6 +6,26 @@ All notable changes to `niri-meta` are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Own repo `nyx-niri` (compositor-neutral mascot island overlay) and its
+  conditional deploy into `.../quickshell/ui/nyx`.
+- Shared repos `shell` and `nyx` are now cloned and their base deployed, plus a
+  vendored `share/default_settings.json` seeded only when `settings.json` is
+  absent. `dotsniri` is now standalone: it no longer requires `dots` to provide
+  the Quickshell shell or the settings seed.
+- Namespaced multi-overlay engine
+  (`~/.local/state/equisdots-niri/overlay/<name>`) so `niri-shell` and
+  `nyx-niri` apply and remove independently.
+- `doctor` check for the Quickshell shell base (`$QS/Shell.qml`).
+
+### Changed
+
+- `deploy` runs in phases: shared base (`shell`, `nyx`, settings seed) first,
+  the niri payload next, and the overlays last, so a base deploy can never wipe
+  an applied overlay.
+- `desktop` keeps every overlay in sync with the selected session.
+
 ## [0.1.0] - 2026-10-08
 
 ### Added

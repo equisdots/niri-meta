@@ -60,6 +60,8 @@ pulls or modifies an existing shared clone.
 | own | [niri-shell](https://github.com/equisdots/niri-shell) | shell overlay (Niri backend, niri scripts) merged into the shared shell |
 | own | [nyx-niri](https://github.com/equisdots/nyx-niri) | nyx mascot island overlay (compositor-neutral) merged into the shared shell |
 | own | niri-meta | this meta installer |
+| shared | [shell](https://github.com/equisdots/shell) | Quickshell desktop UI (base for the niri-shell overlay) |
+| shared | [nyx](https://github.com/equisdots/nyx) | mascot island base (base for the nyx-niri overlay) |
 | shared | [palettes](https://github.com/equisdots/palettes) | base16 palette data + schema |
 | shared | [theme-sync](https://github.com/equisdots/theme-sync) | cross-app theming engine |
 | shared | [davincix](https://github.com/equisdots/davincix) | wallpaper kernel |
@@ -76,6 +78,9 @@ wallpapers, shell). Only the compositor config moves, to `~/.config/niri`.
 | --- | --- | --- |
 | `niri` `config/niri/` | `~/.config/niri/` | compositor config; generated/user files preserved |
 | `niri` `scripts/` | `~/.config/niri/scripts/` | session helper scripts (made executable) |
+| `shell` (base) | `~/.config/hypr/scripts/quickshell/` | Quickshell UI; `dock/` and `ui/nyx/` excluded |
+| `nyx` (base) | `~/.config/hypr/scripts/quickshell/ui/nyx/` | mascot island base |
+| `share/default_settings.json` | `~/.config/hypr/settings.json` | seeded only when absent; user config is never overwritten |
 | `niri-shell` overlay | `~/.config/hypr/scripts/quickshell/` | conditional merge; overwritten files are backed up |
 | `nyx-niri` overlay | `~/.config/hypr/scripts/quickshell/ui/nyx/` | conditional merge; compositor-neutral mascot island |
 | `palettes` `*.json`, `community/` | `.../quickshell/dock/palettes/` | `cp -f`, user palettes and editor edits survive |
@@ -110,9 +115,10 @@ replaced by a niri-only variant unless the niri session is selected.
 
 - Different command (`dotsniri`), different clone root
   (`~/.local/share/equisdots-niri`). Nothing under `equisdots` is written.
-- Shared repos (palettes, theme-sync, davincix, timex, login, background) are
-  read-only. When a wrapper is needed, `dotsniri` installs it only if it is
-  missing, so it never fights a wrapper owned by `dots`.
+- Shared repos (shell, nyx, palettes, theme-sync, davincix, timex, login,
+  background) are read-only clones. `dotsniri` clones them if missing and
+  deploys the base shell/nyx, so it works standalone without `dots`; it never
+  pulls or modifies an existing shared clone (that is `dots update`'s job).
 - The niri compositor config is isolated at `~/.config/niri`; Hyprland's
   `~/.config/hypr/*.lua` is untouched.
 - The niri overlay is conditional and reversible, and it re-applies cleanly

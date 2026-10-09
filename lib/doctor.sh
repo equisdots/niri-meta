@@ -95,6 +95,15 @@ check_overlay() {
     fi
 }
 
+check_shell_base() {
+    if [[ -f "$QS/Shell.qml" ]]; then
+        ok "Quickshell shell present ($QS)"
+    else
+        warn "shell missing at $QS (run: dotsniri install)"
+        DOCTOR_FAIL=1
+    fi
+}
+
 check_path() {
     case ":$PATH:" in
         *":$HOME/.local/bin:"*) ok "$HOME/.local/bin in PATH" ;;
@@ -181,6 +190,7 @@ cmd_doctor() {
     check_niri_config
 
     msg "deploy"
+    check_shell_base
     check_overlay
     check_path
     check_settings_compositor

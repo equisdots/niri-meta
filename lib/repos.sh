@@ -20,6 +20,8 @@ REPO_SPECS=(
     "own|equisdots|niri"
     "own|equisdots|niri-shell"
     "own|equisdots|nyx-niri"
+    "shared|equisdots|shell"
+    "shared|equisdots|nyx"
     "shared|equisdots|palettes"
     "shared|equisdots|theme-sync"
     "shared|equisdots|davincix"

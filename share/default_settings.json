@@ -1,0 +1,107 @@
+{
+  "uiScale": 1.0,
+  "appScale": 1.0,
+  "workspaceCount": 8,
+  "unifiedDesktops": true,
+  "wallpaperDir": "~/.config/hypr/wallpapers",
+  "language": "",
+  "kbOptions": "grp:alt_shift_toggle",
+  "barEngine": "bar",
+  "mascots": {
+    "enabled": false,
+    "size": 1.0,
+    "species": "flame",
+    "count": 3,
+    "position": "top-center"
+  },
+  "glass": {
+    "enabled": false,
+    "opacity": 0.85
+  },
+  "shadows": {
+    "enabled": true,
+    "blur": 26,
+    "spread": 0,
+    "offsetX": 0,
+    "offsetY": 6,
+    "opacity": 0.5,
+    "radius": 18
+  },
+  "bar": {
+    "position": "top",
+    "palette": "x",
+    "thickness": 48,
+    "edgeGap": 8,
+    "roundness": 1.0,
+    "pillBg": true,
+    "pillSolid": false,
+    "barBg": false,
+    "stylePreset": "modular",
+    "barOpacity": 0.85,
+    "dragModules": true,
+    "borderWidth": 0,
+    "borderColor": "surface1",
+    "borderFollowPalette": true,
+    "borderActive": "",
+    "borderInactive": "",
+    "font": "Hack Nerd Font",
+    "timeFormat": "HH:mm:ss",
+    "dateFormat": "dddd, MMMM dd",
+    "modules": {},
+    "workspacesMarker": "number",
+    "workspacesMarkerText": "",
+    "zones": [
+      {
+        "id": "start",
+        "align": "start",
+        "unify": false,
+        "zoneBg": "",
+        "zoneBgSolid": false,
+        "borderWidth": 0,
+        "borderColor": "surface1",
+        "modules": [
+          { "id": "help", "enabled": true },
+          { "id": "search", "enabled": true },
+          { "id": "settings", "enabled": true },
+          { "id": "update", "enabled": true },
+          { "id": "time", "enabled": true },
+          { "id": "date", "enabled": true },
+          { "id": "media", "enabled": true }
+        ]
+      },
+      {
+        "id": "center",
+        "align": "center",
+        "unify": false,
+        "zoneBg": "",
+        "zoneBgSolid": false,
+        "borderWidth": 0,
+        "borderColor": "surface1",
+        "modules": [
+          { "id": "workspaces", "enabled": true }
+        ]
+      },
+      {
+        "id": "end",
+        "align": "end",
+        "unify": false,
+        "zoneBg": "",
+        "zoneBgSolid": false,
+        "borderWidth": 0,
+        "borderColor": "surface1",
+        "modules": [
+          { "id": "tray", "enabled": true },
+          { "id": "keyboard", "enabled": true },
+          { "id": "wifi", "enabled": true },
+          { "id": "bluetooth", "enabled": true },
+          { "id": "sysmon", "enabled": true },
+          { "id": "volume", "enabled": true },
+          { "id": "battery", "enabled": true },
+          { "id": "recording", "enabled": true },
+          { "id": "weather", "enabled": false },
+          { "id": "focus", "enabled": false }
+        ]
+      }
+    ]
+  }
+}
