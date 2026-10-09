@@ -1,0 +1,6 @@
+# Local scratch and parked copies (install/reset leave these around).
+tmp/
+*.bak
+*.pre-dotsniri
+*.swp
+*.log

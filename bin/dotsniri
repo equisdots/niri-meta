@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════════════
+# equisdots-niri · dotsniri
+#
+# Meta installer and updater for the equisdots niri desktop stack. This is a
+# thin entry point: it resolves its own location, sources the lib/ modules,
+# parses the global flags and dispatches to the command implementations.
+#
+# The whole implementation is sourced up front on purpose. A run may pull the
+# niri-meta clone (self-update) while executing; because the functions are
+# already in memory, rewriting the files on disk cannot corrupt this process.
+#
+# Usage: dotsniri <command> [-y] [--dry-run]
+#   Run `dotsniri help` for the full command surface.
+# ═══════════════════════════════════════════════════════════════════════════
+set -euo pipefail
+
+# Resolve the real path of this script, following symlinks (a wrapper in
+# ~/.local/bin may point at the clone).
+SELF="${BASH_SOURCE[0]}"
+while [[ -L "$SELF" ]]; do
+    SELF="$(readlink "$SELF")"
+done
+ROOT_DIR="$(cd "$(dirname "$SELF")/.." && pwd)"
+export ROOT_DIR
+
+# Remote bootstrap: when this file is piped from curl (`bash <(curl ...)`) there
+# is no lib/ next to it, so clone the meta and hand over to the clone's entry
+# point. From a local checkout or the installed wrapper this is a no-op.
+if [[ ! -r "$ROOT_DIR/lib/common.sh" ]]; then
+    __base="${XDG_DATA_HOME:-$HOME/.local/share}/equisdots-niri"
+    __target="$__base/niri-meta"
+    if [[ ! -d "$__target/.git" ]]; then
+        printf ':: bootstrapping niri-meta into %s\n' "$__target"
+        mkdir -p "$__base"
+        git clone --depth 1 https://github.com/equisdots/niri-meta.git \
+            "$__target" --quiet || {
+            printf 'error: bootstrap clone failed (network? git?)\n' >&2
+            exit 1
+        }
+    fi
+    exec "$__target/bin/dotsniri" "$@"
+fi
+
+# shellcheck source=../lib/common.sh
+. "$ROOT_DIR/lib/common.sh"
+# shellcheck source=../lib/repos.sh
+. "$ROOT_DIR/lib/repos.sh"
+# shellcheck source=../lib/deploy.sh
+. "$ROOT_DIR/lib/deploy.sh"
+# shellcheck source=../lib/desktop.sh
+. "$ROOT_DIR/lib/desktop.sh"
+# shellcheck source=../lib/doctor.sh
+. "$ROOT_DIR/lib/doctor.sh"
+# shellcheck source=../lib/system.sh
+. "$ROOT_DIR/lib/system.sh"
+
+main() {
+    local rest=() arg
+    for arg in "$@"; do
+        case "$arg" in
+            -y|--yes)       ASSUME_YES=1 ;;
+            -n|--dry-run)   DRY_RUN=1 ;;
+            -h|--help)      HELP=1 ;;
+            --version)      rest+=(version) ;;
+            *)              rest+=("$arg") ;;
+        esac
+    done
+    set -- "${rest[@]}"
+
+    local cmd="${1:-help}"
+    if [[ "${HELP:-0}" -eq 1 ]]; then
+        usage_command "$cmd"
+        return 0
+    fi
+
+    case "$cmd" in
+        setup)      shift; cmd_setup "$@" ;;
+        list)       shift; cmd_list "$@" ;;
+        update)     shift; cmd_update "$@" ;;
+        install)    shift; cmd_install "$@" ;;
+        deploy)     shift; cmd_deploy "$@" ;;
+        doctor)     shift; cmd_doctor "$@" ;;
+        reset)      shift; cmd_reset "$@" ;;
+        uninstall)  shift; cmd_uninstall "$@" ;;
+        desktop)    shift; cmd_desktop "$@" ;;
+        system)     shift; cmd_system "$@" ;;
+        version)    cmd_version ;;
+        help)       usage ;;
+        *)          usage; die "unknown command: $cmd" ;;
+    esac
+}
+
+main "$@"
