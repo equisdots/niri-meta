@@ -8,6 +8,50 @@ All notable changes to `niri-meta` are documented here. The format follows
 
 ### Added
 
+- Plugin-standard parity with the merged Hyprland stack: shared repos
+  `plugin-api`, `plugin-sdk` and `plugins` are cloned and deployed; the deploy
+  installs `plugin-api.json` + the compat evaluator, `core/sdk/`, the
+  `plugins-registry.json` copy and the default plugin set (`screenshots`,
+  `timex`, `rss-reader`, `clipboard`, `quicknotes`, `file-search`, `sysmon`,
+  `keybinds`) by the generic convention (whole UI under `ui/plugins/<id>`,
+  runtime manifest/`hypr.lua`/`scripts` under `~/.config/hypr/plugins/<id>`,
+  plugin-owned settings seeded once, standalone launchers generated).
+- Nyx is deployed as the root-level plugin it is now (`ui/plugins/nyx` +
+  `~/.config/hypr/plugins/nyx`); the `nyx-niri` overlay follows it.
+- `doctor` checks the plugin standard, the Plugins panel and every default
+  plugin payload, plus `bar.enabled` in `settings.json`.
+- `dotsniri plugins` (`list`, `available`, `add`, `remove`, `enable`,
+  `disable`): same convention as `dots plugins`, resolving sources from the
+  plugin hub and the root-level `nyx`/`timex` clones. The Plugins page install
+  button uses it (falling back to `dots` when present).
+- `updates.json` and the `~/.local/state/equisdots-niri-version` state: the
+  shell's updater popup now reports and applies niri-stack updates
+  (`dotsniri update`).
+- `share/default_settings.json` re-synced with the current upstream defaults
+  (`bar.enabled`, `plugins`, no `barEngine`/`mascots` blocks).
+
+### Fixed
+
+- `deploy` seeds the single-occurrence generated sections
+  (`generated/user-input.kdl`, `generated/user-animations.kdl`,
+  `generated/blur.kdl`) from the niri repo's `defaults/` only when missing, so a
+  fresh install has the translated input/animation/blur defaults without ever
+  duplicating those sections in the assembled config.
+
+### Changed
+
+- `shell` deploy excludes the plugin-owned paths (`ui/plugins/`,
+  `core/sdk/`, `plugin-api.json`, `plugins_compat.sh`, `plugins-registry.json`,
+  `plugin-*.qml`) and purges the legacy `ui/nyx` location.
+- `deploy` now runs in four phases (base + plugin host, plugins, niri payload,
+  overlays).
+- `timex` is no longer deployed as a `~/.local/bin/timex` wrapper +
+  `ui/timex`; it ships as a default plugin like on the Hyprland stack.
+- Shared `shell`, `plugin-api`, `plugin-sdk`, `plugins` and `timex` clones are
+  pulled on install/update (they are deployed siblings).
+
+### Added (previous)
+
 - `login install|remove|status` and the own `niri-login` repo: the niri Wayland
   session entry is placed in a **system-scanned** `wayland-sessions` directory
   (with sudo) so display managers list "Niri". Display managers do not scan the

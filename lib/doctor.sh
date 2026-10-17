@@ -114,6 +114,29 @@ check_shell_base() {
     fi
 }
 
+check_plugins() {
+    local missing=0 p
+    for p in "$QS/plugin-api.json" "$QS/core/sdk/PluginHost.qml" \
+             "$QS/core/scripts/plugins_scan.sh" "$QS/core/scripts/plugins_compat.sh" \
+             "$QS/plugins-registry.json"; do
+        [[ -f "$p" ]] || { warn "plugin standard missing: ${p#"$QS"/} (run: dotsniri install)"; DOCTOR_FAIL=1; missing=1; }
+    done
+    [[ "$missing" -eq 0 ]] && ok "plugin standard deployed (API, SDK, scan, registry)"
+    # Default plugin payloads (UI face + runtime manifest).
+    for p in screenshots timex rss-reader clipboard quicknotes file-search sysmon keybinds nyx; do
+        if [[ -f "$QS/ui/plugins/$p/plugin.json" && -f "$HYPR/plugins/$p/plugin.json" ]]; then
+            ok "plugin $p deployed"
+        else
+            warn "plugin $p missing (run: dotsniri install)"
+            DOCTOR_FAIL=1
+        fi
+    done
+    # Plugins-panel settings page + bar modules (compositor-neutral shell).
+    [[ -f "$QS/ui/panels/plugins/PluginsPanel.qml" ]] \
+        && ok "Plugins panel present" \
+        || { warn "Plugins panel missing (SUPER+SHIFT+M would do nothing)"; DOCTOR_FAIL=1; }
+}
+
 check_login_entry() {
     local d found=0
     for d in /usr/share/wayland-sessions /usr/local/share/wayland-sessions \
@@ -158,6 +181,14 @@ check_settings_compositor() {
         ok "settings.json compositor = $have_c"
     else
         note "settings.json compositor='${have_c:-unset}' vs desktop='$want' (run: dotsniri desktop $want)"
+    fi
+    local bar_enabled
+    bar_enabled="$(jq -r 'if (.bar.enabled // null) == null then "unset" else (.bar.enabled|tostring) end' "$HYPR/settings.json" 2>/dev/null || true)"
+    if [[ "$bar_enabled" == "unset" ]]; then
+        warn "settings.json has no bar.enabled (legacy barEngine key); run 'dotsniri install' to seed the current defaults"
+        DOCTOR_FAIL=1
+    else
+        ok "settings.json bar.enabled = $bar_enabled"
     fi
 }
 
@@ -219,7 +250,7 @@ cmd_doctor() {
 
     msg "binaries (optional)"
     local c
-    for c in grim slurp satty hyprpicker cargo mpvpaper; do
+    for c in grim slurp satty fd fdfind cliphist zbarimg gpu-screen-recorder cargo mpvpaper; do
         chk_optional "$c"
     done
 
@@ -232,6 +263,7 @@ cmd_doctor() {
 
     msg "deploy"
     check_shell_base
+    check_plugins
     check_overlay
     check_login_entry
     check_notification_daemon

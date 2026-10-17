@@ -6,7 +6,8 @@ separate clone root (`~/.local/share/equisdots-niri`), so a parallel `dots`
 install is never modified and the two stacks can coexist on the same machine.
 
 `dotsniri` owns the niri compositor, the niri overlays and the display-manager
-session entry. It also deploys the shared Quickshell `shell` and `nyx` bases
+session entry. It also deploys the shared Quickshell `shell` base, the plugin
+standard (`plugin-api`, `plugin-sdk`, the `plugins` hub) and the plugin set
 (plus a settings seed), so it works standalone without `dots`. The remaining
 shared `equisdots` repos are consumed read-only from `~/.local/share/equisdots`
 and remain owned by `dots`.
@@ -37,17 +38,18 @@ it is absent. If the clone already exists it is fetched and hard-reset to
 | Command | What it does |
 | --- | --- |
 | `setup` | `install`, default to niri on a fresh install, then run the system package phase when niri is missing (or with `--system`) |
-| `install` | clone/update the own repos and the shared `shell`/`nyx` bases, default the desktop to niri, deploy, bootstrap packages when niri is missing, and ensure the login entry |
+| `install` | clone/update the own repos plus the shared shell/plugin bases, default the desktop to niri, deploy, bootstrap packages when niri is missing, and ensure the login entry |
 | `deploy` | deploy from the existing clones (no clone or update), in phases |
-| `update` | pull the own repos plus the shared `shell`/`nyx` bases, then re-deploy |
+| `update` | pull the own repos plus the shared shell/plugin bases, then re-deploy |
 | `list` | managed repos with their kind (`own` / `shared`) and state |
-| `doctor` | binaries, clones, shell base, niri shell backend, overlays, login entry, notification daemon, settings and `niri validate` |
+| `doctor` | binaries, clones, shell base, plugin standard/default plugins, niri shell backend, overlays, login entry, notification daemon, settings and `niri validate` |
 | `doctor --self-test` | syntax-check the toolkit (`bash -n`); works without niri |
 | `reset` | remove the niri deploy, drop the own clones, reinstall from origin/main |
 | `uninstall` | reverse the deploy (overlays, login entry, wrappers); clones and config kept |
 | `desktop <niri\|hyprland\|both>` | default session, `settings.json` mirror, all overlays in sync, login entry |
 | `login <install\|remove\|status>` | manage the DM session entry system-wide (via `niri-login`, sudo) |
 | `system [--apply]` | install distro packages (niri, portals, ...) via `system/install-<distro>.sh` |
+| `plugins [list\|available\|add\|remove\|enable\|disable]` | manage the plugin set by the standard convention (parity with `dots plugins`) |
 | `version` | print the `dotsniri` version |
 | `help` | usage |
 
@@ -59,9 +61,9 @@ nothing), `-h/--help`.
 `own` repos are cloned into `~/.local/share/equisdots-niri/<repo>`, updated by
 `dotsniri` and deployed by it. `shared` repos live in
 `~/.local/share/equisdots/<repo>`: `dotsniri` clones them if missing. The shared
-`shell` and `nyx` are the base the overlays sit on, so they are pulled and
-redeployed too; the remaining shared repos are read-only and are only updated by
-`dots`.
+bases that `dotsniri` deploys (`shell`, `plugin-api`, `plugin-sdk`, `plugins`,
+`nyx`, `timex`) are pulled and redeployed too; the remaining shared repos are
+read-only and are only updated by `dots`.
 
 | Kind | Repo | Role |
 | --- | --- | --- |
@@ -71,11 +73,14 @@ redeployed too; the remaining shared repos are read-only and are only updated by
 | own | [niri-login](https://github.com/equisdots/niri-login) | Wayland session entry installer (so DMs list "Niri") |
 | own | niri-meta | this meta installer |
 | shared | [shell](https://github.com/equisdots/shell) | Quickshell desktop UI (pulled and deployed as the base for the niri-shell overlay) |
-| shared | [nyx](https://github.com/equisdots/nyx) | mascot island base (pulled and deployed as the base for the nyx-niri overlay) |
+| shared | [plugin-api](https://github.com/equisdots/plugin-api) | plugin manifest schema, host API version and compat evaluator |
+| shared | [plugin-sdk](https://github.com/equisdots/plugin-sdk) | QML host kit installed at `core/sdk` |
+| shared | [plugins](https://github.com/equisdots/plugins) | plugin hub: standard, concentration folder and install registry |
+| shared | [nyx](https://github.com/equisdots/nyx) | mascot island plugin (deployed as a root-level plugin; base for the nyx-niri overlay) |
 | shared | [palettes](https://github.com/equisdots/palettes) | base16 palette data + schema |
 | shared | [theme-sync](https://github.com/equisdots/theme-sync) | cross-app theming engine |
 | shared | [davincix](https://github.com/equisdots/davincix) | wallpaper kernel |
-| shared | [timex](https://github.com/equisdots/timex) | time/weather engine + UI |
+| shared | [timex](https://github.com/equisdots/timex) | time/weather plugin (default plugin set) |
 | shared | [login](https://github.com/equisdots/login) | static SDDM greeter |
 | shared | [background](https://github.com/equisdots/background) | wallpaper scenes |
 
@@ -83,27 +88,33 @@ redeployed too; the remaining shared repos are read-only and are only updated by
 
 The shared data root stays `~/.config/hypr` (settings.json, palettes,
 wallpapers, shell). Only the compositor config moves, to `~/.config/niri`.
-`deploy` runs in three phases so the shared base is laid down first and the
-overlays are applied last, which means a base deploy can never wipe an applied
-overlay:
+`deploy` runs in four phases so the shared base and plugin host are laid down
+first and the overlays are applied last, which means a base or plugin deploy can
+never wipe an applied overlay:
 
-1. shared base: `shell`, `nyx` and the settings seed;
-2. niri payload and the remaining shared repos;
-3. overlays: `niri-shell`, then `nyx-niri`.
+1. shared base: `shell`, `plugin-api`, `plugin-sdk`, the `plugins` registry and
+   the settings seed;
+2. plugins: `nyx` plus the default plugin set (`screenshots`, `timex`,
+   `rss-reader`, `clipboard`, `quicknotes`, `file-search`, `sysmon`, `keybinds`);
+3. niri payload and the remaining shared repos;
+4. overlays: `niri-shell`, then `nyx-niri`.
 
 | Source | Destination | Notes |
 | --- | --- | --- |
 | `niri` `config/niri/` | `~/.config/niri/` | compositor config; generated/user files preserved |
 | `niri` `scripts/` | `~/.config/niri/scripts/` | session helper scripts (made executable) |
-| `shell` (base) | `~/.config/hypr/scripts/quickshell/` | Quickshell UI; `dock/`, `ui/nyx/` and `docs/` excluded |
-| `nyx` (base) | `~/.config/hypr/scripts/quickshell/ui/nyx/` | mascot island base |
+| `shell` (base) | `~/.config/hypr/scripts/quickshell/` | Quickshell UI; `dock/`, `ui/plugins/`, `core/sdk/`, the plugin contract files and `docs/` excluded |
+| `plugin-api` | `.../quickshell/plugin-api.json` + `core/scripts/plugins_compat.sh` | normative contract + compat evaluator |
+| `plugin-sdk` | `.../quickshell/core/sdk/` | QML host kit |
+| `plugins` | `.../quickshell/plugins-registry.json` | install registry copy for the Plugins panel |
+| `<plugin>` | `.../quickshell/ui/plugins/<id>/` + `~/.config/hypr/plugins/<id>/` | whole plugin UI + runtime subset (manifest, hypr.lua, scripts, settings seed) |
+| `nyx` (plugin) | `.../quickshell/ui/plugins/nyx/` + `~/.config/hypr/plugins/nyx/` | mascot island plugin |
 | `share/default_settings.json` | `~/.config/hypr/settings.json` and `default_settings.json` | seeded only when absent; user config is never overwritten |
 | `niri-shell` overlay | `~/.config/hypr/scripts/quickshell/` | conditional merge; overwritten files are backed up |
-| `nyx-niri` overlay | `~/.config/hypr/scripts/quickshell/ui/nyx/` | conditional merge; compositor-neutral mascot island |
+| `nyx-niri` overlay | `~/.config/hypr/scripts/quickshell/ui/plugins/nyx/` | conditional merge; compositor-neutral mascot island |
 | `palettes` `*.json`, `community/` | `.../quickshell/dock/palettes/` | `cp -f`, user palettes and editor edits survive |
 | `theme-sync` | `~/.local/bin/theme-sync` | only installed if missing |
 | `davincix` | `~/.local/bin/davincix` | only installed if missing |
-| `timex` | `~/.local/bin/timex` + `.../quickshell/ui/timex/` | only installed if missing |
 | `login` | system SDDM theme | handled by the system hook |
 | `login` | system `wayland-sessions/niri.desktop` | installed by `dotsniri login` (sudo); skipped if the distro provides one |
 | `background` | none | consumed by davincix / xwww at runtime |
@@ -135,9 +146,10 @@ replaced by a niri-only variant unless the niri session is selected.
 - Different command (`dotsniri`), different clone root
   (`~/.local/share/equisdots-niri`). A parallel `dots` install under
   `~/.local/share/equisdots` is never modified.
-- Shared repos (`shell`, `nyx`, `palettes`, `theme-sync`, `davincix`, `timex`,
-  `login`, `background`) are cloned if missing and the base `shell`/`nyx` are
-  deployed, so `dotsniri` works standalone without `dots`. The shared `shell`
+- Shared repos (`shell`, `plugin-api`, `plugin-sdk`, `plugins`, `nyx`,
+  `palettes`, `theme-sync`, `davincix`, `timex`, `login`, `background`) are
+  cloned if missing and the shell/plugin bases are deployed, so `dotsniri` works
+  standalone without `dots`. The shared `shell`
   and `nyx` are kept current by `dotsniri` (they are the base the overlays sit
   on); the other shared clones are read-only and only `dots update` changes
   them.

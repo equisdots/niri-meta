@@ -62,6 +62,8 @@ fi
 . "$ROOT_DIR/lib/doctor.sh"
 # shellcheck source=../lib/system.sh
 . "$ROOT_DIR/lib/system.sh"
+# shellcheck source=../lib/plugins.sh
+. "$ROOT_DIR/lib/plugins.sh"
 
 main() {
     local rest=() arg
@@ -94,6 +96,7 @@ main() {
         desktop)    shift; cmd_desktop "$@" ;;
         login)      shift; cmd_login "$@" ;;
         system)     shift; cmd_system "$@" ;;
+        plugins)    shift; cmd_plugins "$@" ;;
         version)    cmd_version ;;
         help)       usage ;;
         *)          usage; die "unknown command: $cmd" ;;
