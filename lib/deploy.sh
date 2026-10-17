@@ -6,10 +6,15 @@
 #   niri          config/niri/  -> ~/.config/niri/            (compositor config)
 #   niri          scripts/      -> ~/.config/niri/scripts/
 #   niri-shell    overlay/      -> ~/.config/hypr/scripts/quickshell  (merge)
+#   plugin-api    contract      -> .../quickshell/plugin-api.json + compat
+#   plugin-sdk    QML kit       -> .../quickshell/core/sdk/
+#   plugins       registry      -> .../quickshell/plugins-registry.json
+#   <plugin>      UI + runtime  -> .../quickshell/ui/plugins/<id>,
+#                                  ~/.config/hypr/plugins/<id>
 #   palettes      *.json        -> .../quickshell/dock/palettes (cp -f)
 #   theme-sync    wrapper       -> ~/.local/bin/theme-sync   (if missing)
 #   davincix      wrapper       -> ~/.local/bin/davincix     (if missing)
-#   timex         wrapper + UI  -> ~/.local/bin/timex, .../quickshell/ui/timex
+#   timex         default plugin (see <plugin> above)
 #   login         system-wide   -> handled by the system hook
 #   background    no deploy     -> consumed by davincix/xwww
 #
@@ -23,33 +28,63 @@
 }
 set -euo pipefail
 
+# Plugins that ship with the stack (same set as `dots`): deployed through the
+# registry convention on every install/update. No toggle is written; each
+# manifest's defaultEnabled decides the state.
+DEFAULT_PLUGINS=(screenshots timex rss-reader clipboard quicknotes file-search sysmon keybinds)
+
 # ── Commands ────────────────────────────────────────────────────────────────
 
 cmd_deploy() {
-    require rsync
+    require rsync jq
     local name
 
-    # Phase 1: shared base repos that the overlays sit on top of. Deploying the
-    # Quickshell shell and the nyx base makes dotsniri standalone (no `dots`
-    # run required) while remaining idempotent and read-only toward `dots`.
+    # Phase 1: shared base payloads. The shell, the plugin contract/SDK and the
+    # plugin hub are deployed first so the plugin subset below lands on a valid
+    # host. This keeps dotsniri standalone (no `dots` run required) while
+    # remaining idempotent and read-only toward `dots`.
     deploy_repo shell
-    deploy_repo nyx
+    deploy_repo plugin-api
+    deploy_repo plugin-sdk
+    deploy_repo plugins
     deploy_settings_seed
 
-    # Phase 2: the niri payload and the remaining shared repos (overlays are
-    # handled last so a base deploy can never wipe them).
+    # Phase 2: plugins. Nyx (a root-level plugin repo) and the default plugin
+    # set deploy through the generic convention (UI -> shell tree, runtime ->
+    # ~/.config/hypr/plugins/<id>).
+    deploy_repo nyx
+    deploy_default_plugins
+
+    # Phase 3: the niri payload and the remaining shared repos (overlays are
+    # handled last so a base/plugin deploy can never wipe them).
     while IFS= read -r name; do
         case "$name" in
-            shell|nyx|niri-shell|nyx-niri) continue ;;
+            shell|nyx|timex|plugin-api|plugin-sdk|plugins|niri-shell|nyx-niri) continue ;;
         esac
         deploy_repo "$name"
     done < <(repos_all)
 
-    # Phase 3: overlays last.
+    # Phase 4: overlays last (after the plugin UI tree exists).
     deploy_repo niri-shell
     deploy_repo nyx-niri
 
+    write_version_state
     ok "deploy finished"
+}
+
+# Keep the About/updater version state aligned with this meta's VERSION.
+write_version_state() {
+    local v f
+    v="$(cat "$ROOT_DIR/VERSION" 2>/dev/null || true)"
+    [[ -n "$v" ]] || return 0
+    f="${XDG_STATE_HOME:-$HOME/.local/state}/equisdots-niri-version"
+    if (( DRY_RUN )); then
+        msg "[dry-run] write LOCAL_VERSION=\"$v\" to $f"
+        return 0
+    fi
+    run mkdir -p "$(dirname "$f")"
+    printf 'LOCAL_VERSION="%s"\n' "$v" > "$f"
+    ok "version state -> $f ($v)"
 }
 
 cmd_setup() {
@@ -89,19 +124,22 @@ deploy_repo() {
         return 0
     fi
     case "$name" in
-        niri-meta)  deploy_meta "$path" ;;
-        niri)       deploy_niri "$path" ;;
-        niri-shell) deploy_niri_shell "$path" ;;
-        nyx-niri)   deploy_nyx_niri "$path" ;;
-        niri-login) note "niri-login: session entry is installed by 'dotsniri login' (needs sudo)" ;;
-        shell)      deploy_shell "$path" ;;
-        nyx)        deploy_nyx "$path" ;;
-        palettes)   deploy_palettes "$path" ;;
-        theme-sync) deploy_wrapper theme-sync "$path/theme-sync.sh" ;;
-        davincix)   deploy_wrapper davincix "$path/davincix.sh" ;;
-        timex)      deploy_timex "$path" ;;
-        login)      note "login: SDDM theme is installed system-wide by 'dotsniri system' (or 'dots system')" ;;
-        background) note "background: wallpaper scenes are consumed by davincix/xwww (no deploy step)" ;;
+        niri-meta)   deploy_meta "$path" ;;
+        niri)        deploy_niri "$path" ;;
+        niri-shell)  deploy_niri_shell "$path" ;;
+        nyx-niri)    deploy_nyx_niri "$path" ;;
+        niri-login)  note "niri-login: session entry is installed by 'dotsniri login' (needs sudo)" ;;
+        shell)       deploy_shell "$path" ;;
+        plugin-api)  deploy_plugin_api "$path" ;;
+        plugin-sdk)  deploy_plugin_sdk "$path" ;;
+        plugins)     deploy_plugins_registry "$path" ;;
+        nyx)         deploy_plugin "$path" ;;
+        palettes)    deploy_palettes "$path" ;;
+        theme-sync)  deploy_wrapper theme-sync "$path/theme-sync.sh" ;;
+        davincix)    deploy_wrapper davincix "$path/davincix.sh" ;;
+        timex)       note "timex: shipped as a default plugin (deploy_default_plugins)" ;;
+        login)       note "login: SDDM theme is installed system-wide by 'dotsniri system' (or 'dots system')" ;;
+        background)  note "background: wallpaper scenes are consumed by davincix/xwww (no deploy step)" ;;
     esac
 }
 
@@ -137,6 +175,19 @@ deploy_niri() {
         warn "niri: config/niri missing in the clone (layout changed?)"
     fi
 
+    # Seed the single-occurrence generated sections (input/animations/blur)
+    # once. The writers own them afterwards; existing files are preserved.
+    if [[ -d "$src/defaults" ]]; then
+        run mkdir -p "$NIRI_CFG/generated"
+        local g gsrc gdst
+        for g in input:user-input animations:user-animations blur:blur; do
+            gsrc="${g%%:*}"; gdst="${g##*:}"
+            if [[ ! -f "$NIRI_CFG/generated/$gdst.kdl" && -f "$src/defaults/$gsrc.kdl" ]]; then
+                run cp "$src/defaults/$gsrc.kdl" "$NIRI_CFG/generated/$gdst.kdl"
+            fi
+        done
+    fi
+
     if [[ -d "$path/scripts" ]]; then
         msg "niri: session scripts -> $NIRI_CFG/scripts"
         run mkdir -p "$NIRI_CFG/scripts"
@@ -152,7 +203,7 @@ deploy_niri_shell() {
     deploy_overlay_repo niri-shell "$1"
 }
 
-# nyx-niri ships its payload under overlay/ (ui/nyx/...).
+# nyx-niri ships its payload under overlay/ (ui/plugins/nyx/...).
 deploy_nyx_niri() {
     deploy_overlay_repo nyx-niri "$1"
 }
@@ -188,8 +239,10 @@ deploy_palettes() {
 }
 
 # Mirror the shared `shell` deploy from `dots` so dotsniri is standalone. The
-# dock/ (palettes) and ui/nyx/ subtrees are excluded, because they are owned by
-# the palette deploy and the nyx deploy respectively.
+# plugin-owned subtrees are excluded here and deployed separately (plugin-api,
+# plugin-sdk, the registry copy and ui/plugins/<id>), and dock/ (palettes) is
+# owned by the palette deploy. The legacy ui/nyx location is purged: nyx is a
+# plugin now and lives in ui/plugins/nyx.
 deploy_shell() {
     local path="$1"
     if [[ ! -d "$path" ]]; then
@@ -199,22 +252,117 @@ deploy_shell() {
     msg "shell: quickshell -> $QS"
     run mkdir -p "$QS"
     run rsync -a --delete --exclude '.git*' --exclude 'docs/' \
-        --exclude 'dock/' --exclude 'ui/nyx/' "$path/" "$QS/"
+        --exclude 'dock/' --exclude 'ui/plugins/' --exclude 'ui/nyx/' \
+        --exclude 'core/sdk/' --exclude 'plugin-api.json' \
+        --exclude 'core/scripts/plugins_compat.sh' \
+        --exclude 'plugins-registry.json' --exclude 'plugin-*.qml' \
+        "$path/" "$QS/"
+    if (( ! DRY_RUN )); then
+        find "$QS" -name '*.sh' -exec chmod +x {} + 2>/dev/null || true
+        rm -rf "$QS/ui/nyx"
+    fi
     ok "shell deployed"
 }
 
-# Shared nyx base (mascots, species, dock). Fully managed into $QS/ui/nyx; the
-# nyx-niri overlay then merges its compositor-neutral files on top.
-deploy_nyx() {
+# ── Plugin standard (mirrors `dots`) ───────────────────────────────────────
+
+deploy_plugin_api() {
     local path="$1"
-    if [[ ! -d "$path" ]]; then
-        warn "nyx: clone missing; run 'dotsniri install'"
-        return 0
+    [[ -f "$path/plugin-api.json" ]] || { warn "plugin-api: payload missing in the clone"; return 0; }
+    msg "plugin-api -> $QS (plugin-api.json + compat evaluator)"
+    run mkdir -p "$QS/core/scripts"
+    run cp -f "$path/plugin-api.json" "$QS/plugin-api.json"
+    run cp -f "$path/scripts/plugins_compat.sh" "$QS/core/scripts/plugins_compat.sh"
+    if (( ! DRY_RUN )); then chmod +x "$QS/core/scripts/plugins_compat.sh" 2>/dev/null || true; fi
+    ok "plugin-api deployed"
+}
+
+deploy_plugin_sdk() {
+    local path="$1"
+    [[ -d "$path/qml" ]] || { warn "plugin-sdk: payload missing in the clone (qml/)"; return 0; }
+    msg "plugin-sdk -> $QS/core/sdk (QML host kit)"
+    run mkdir -p "$QS/core/sdk"
+    run rsync -a --delete --exclude '.git*' "$path/qml/" "$QS/core/sdk/"
+    ok "plugin-sdk deployed"
+}
+
+deploy_plugins_registry() {
+    local path="$1" reg="$1/registry.json"
+    [[ -f "$reg" ]] || { warn "plugins: registry.json missing in the clone"; return 0; }
+    msg "plugins: registry -> $QS/plugins-registry.json"
+    run cp -f "$reg" "$QS/plugins-registry.json"
+    ok "plugins registry deployed"
+}
+
+# Deploy one plugin by the standard convention (docs/plugins.md §1/§6):
+#   whole plugin   -> $QS/ui/plugins/<id>  (UI face)
+#   runtime subset -> $HYPR/plugins/<id>  (manifest, hypr.lua, scripts/)
+#   defaults       -> seed the plugin's own settings.json ONCE
+#   standalone     -> one root-level launcher per entry
+deploy_plugin() {
+    local path="$1" id defs
+    [[ -f "$path/plugin.json" ]] || { warn "plugin: no plugin.json in $path"; return 0; }
+    id="$(jq -r '.id // empty' "$path/plugin.json" 2>/dev/null || true)"
+    [[ -n "$id" ]] || { warn "plugin: manifest has no id ($path)"; return 0; }
+    msg "plugin $id: UI -> $QS/ui/plugins/$id"
+    run mkdir -p "$QS/ui/plugins/$id" "$HYPR/plugins/$id"
+    run rsync -a --delete --exclude '.git*' --exclude 'docs/' "$path/" "$QS/ui/plugins/$id/"
+    run cp -f "$path/plugin.json" "$HYPR/plugins/$id/"
+    [[ -f "$path/hypr.lua" ]] && run cp -f "$path/hypr.lua" "$HYPR/plugins/$id/"
+    if [[ -d "$path/scripts" ]]; then
+        run mkdir -p "$HYPR/plugins/$id/scripts"
+        run rsync -a --delete --exclude '.git*' "$path/scripts/" "$HYPR/plugins/$id/scripts/"
     fi
-    msg "nyx: mascots -> $QS/ui/nyx"
-    run mkdir -p "$QS/ui/nyx"
-    run rsync -a --delete --exclude '.git*' --exclude 'docs/' "$path/" "$QS/ui/nyx/"
-    ok "nyx deployed"
+    defs="$(jq -r '.defaults // empty' "$path/plugin.json" 2>/dev/null || true)"
+    if [[ -n "$defs" && -f "$path/$defs" ]]; then
+        run cp -f "$path/$defs" "$HYPR/plugins/$id/defaults.json"
+        if [[ ! -f "$HYPR/plugins/$id/settings.json" ]]; then
+            run cp -f "$path/$defs" "$HYPR/plugins/$id/settings.json"
+            ok "plugin $id: settings.json seeded from $defs"
+        fi
+    fi
+    if (( ! DRY_RUN )); then
+        find "$HYPR/plugins/$id/scripts" -name '*.sh' -exec chmod +x {} + 2>/dev/null || true
+        rm -f "$QS/plugin-$id-"*.qml 2>/dev/null || true
+        local entry edir ebase rel
+        while IFS= read -r entry; do
+            [[ -n "$entry" ]] || continue
+            edir="$(dirname "$entry")"; [[ "$edir" == "." ]] && edir=""
+            ebase="$(basename "$entry" .qml)"
+            rel="ui/plugins/$id"; [[ -n "$edir" ]] && rel="$rel/$edir"
+            cat > "$QS/plugin-$id-$ebase.qml" <<LAUNCH
+// generated by dotsniri — standalone entry for plugin $id ($entry)
+import "./$rel"
+
+$ebase { }
+LAUNCH
+        done < <(jq -r '(.standalone // [])[]' "$path/plugin.json" 2>/dev/null)
+    fi
+    ok "plugin $id deployed"
+}
+
+# Resolve an installed-plugin source: a root-level plugin repo (nyx, timex) or
+# a folder in the plugin hub (plugins/plugins/<id>).
+plugin_source_dir() {
+    local id="$1" hub
+    case "$id" in
+        nyx|timex) repo_path "$id"; return 0 ;;
+    esac
+    hub="$(repo_path plugins 2>/dev/null || true)"
+    [[ -n "$hub" && -f "$hub/plugins/$id/plugin.json" ]] && { printf '%s' "$hub/plugins/$id"; return 0; }
+    return 1
+}
+
+deploy_default_plugins() {
+    local pid src
+    for pid in "${DEFAULT_PLUGINS[@]}"; do
+        src="$(plugin_source_dir "$pid" || true)"
+        if [[ -z "$src" ]]; then
+            warn "plugin $pid: source not found (hub clone missing?)"
+            continue
+        fi
+        deploy_plugin "$src"
+    done
 }
 
 # Seed settings.json from the vendored default only when absent. Never
@@ -256,15 +404,6 @@ WRAP
     ok "$name -> $BIN/$name"
 }
 
-deploy_timex() {
-    local path="$1"
-    deploy_wrapper timex "$path/core/timex.sh"
-    if [[ -d "$path/ui" ]]; then
-        msg "timex: UI -> $QS/ui/timex"
-        run mkdir -p "$QS/ui/timex"
-        run rsync -a --exclude '.git*' "$path/ui/" "$QS/ui/timex/"
-    fi
-}
 
 # ── Overlay engine ──────────────────────────────────────────────────────────
 # A repo may ship its payload under overlay/, shell/ or the repo root. Each
@@ -415,6 +554,9 @@ cmd_reset() {
         || { warn "aborted"; return 0; }
     overlay_remove_all
     undeploy_niri
+    # Managed plugin payload (the user's plugins-user/ is never touched).
+    run rm -rf "$QS/ui/plugins" "$HYPR/plugins"
+    run rm -f "$QS"/plugin-*.qml
 
     # Drop the own clones except the running meta; fetch_repo hard-resets it.
     local name kind p

@@ -116,6 +116,7 @@ Commands:
   desktop <mode>     select the default session: niri | hyprland | both
   login <action>     manage the DM session entry: install | remove | status
   system [--apply]   install distro packages (niri, portals, ...) via templates
+  plugins <action>   list | available | add | remove | enable | disable
   version            print the dotsniri version
   help               show this help
 
@@ -168,6 +169,14 @@ dotsniri <reset|uninstall> [-y]
   Destructive operations. They prompt for confirmation unless -y is given.
     reset      remove the niri deploy, drop the own clones and reinstall
     uninstall  reverse the deploy; clones and config are kept
+EOF
+            ;;
+        plugins) cat <<'EOF'
+dotsniri plugins [list|available|add <id>|remove <id>|enable|disable <id>]
+  Manages the equisdots plugin set with the same convention as `dots plugins`:
+  the UI lands in the shell tree (ui/plugins/<id>), the runtime subset in
+  ~/.config/hypr/plugins/<id>, and the plugin's own settings.json is seeded
+  once. `add` enables the plugin unless --no-enable is passed.
 EOF
             ;;
         system) cat <<'EOF'

@@ -22,6 +22,9 @@ REPO_SPECS=(
     "own|equisdots|nyx-niri"
     "own|equisdots|niri-login"
     "shared|equisdots|shell"
+    "shared|equisdots|plugin-api"
+    "shared|equisdots|plugin-sdk"
+    "shared|equisdots|plugins"
     "shared|equisdots|nyx"
     "shared|equisdots|palettes"
     "shared|equisdots|theme-sync"
@@ -142,16 +145,16 @@ pull_repo() {
     fi
 }
 
-# ensure_repo — clone if missing; own repos are updated. The shared `shell` and
-# `nyx` bases are DEPLOYED by dotsniri (the overlays sit on top of them), so they
-# must stay current and are pulled too. The remaining shared repos are read-only
-# (owned by `dots`).
+# ensure_repo — clone if missing; own repos are updated. The shared bases that
+# dotsniri DEPLOYS (shell, plugin-api, plugin-sdk, plugins, nyx and the timex
+# default plugin) must stay current and are pulled too. The remaining shared
+# repos are read-only (owned by `dots`).
 ensure_repo() {
     local name="$1" kind
     kind="$(repo_kind "$name")"
     if [[ -d "$(repo_path "$name")/.git" ]]; then
         case "$name" in
-            shell|nyx) pull_repo "$name" ;;
+            shell|nyx|plugin-api|plugin-sdk|plugins|timex) pull_repo "$name" ;;
             *)
                 if [[ "$kind" == own ]]; then
                     pull_repo "$name"

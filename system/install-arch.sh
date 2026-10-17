@@ -23,6 +23,7 @@ PKGS=(
     playerctl
     wl-clipboard
     cliphist
+    fd
     brightnessctl
     pamixer
     kitty
@@ -30,6 +31,10 @@ PKGS=(
     jq
     git
     rsync
+    python3
+    libnotify
+    grim
+    slurp
 )
 
 usage() {

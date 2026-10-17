@@ -1,0 +1,12 @@
+{
+  "version": "0.2.0",
+  "date": "2026-10-17",
+  "changelog": [
+    "Plugin-standard parity: plugin-api, plugin-sdk, the plugin hub and the default plugin set deploy on niri",
+    "NyX is deployed as a root-level plugin; the nyx-niri overlay follows ui/plugins/nyx",
+    "dotsniri plugins list|available|add|remove|enable|disable (same convention as dots plugins)",
+    "The Plugins panel (SUPER+SHIFT+M) and the plugin settings pages work on niri",
+    "Shared defaults re-synced (bar.enabled, plugins, no barEngine/mascots)",
+    "Doctor checks the plugin standard, the Plugins panel and every default plugin payload"
+  ]
+}
