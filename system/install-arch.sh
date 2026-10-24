@@ -68,9 +68,8 @@ PKGS=(
     noto-fonts
     noto-fonts-emoji
     noto-fonts-cjk
-    adw-gtk3
+    adw-gtk-theme
     papirus-icon-theme
-    bibata-cursor-theme
 
     power-profiles-daemon
     starship
@@ -91,6 +90,7 @@ PKGS=(
 OPTIONAL_PKGS=(
     envycontrol
     gpu-screen-recorder
+    bibata-cursor-theme
 )
 
 usage() {

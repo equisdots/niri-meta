@@ -170,6 +170,73 @@ WRAP
     ok "dotsniri -> $BIN/dotsniri"
 }
 
+# Seed generated/env.kdl with literal paths (niri cannot expand $HOME, and
+# environment {} is a single-occurrence section). The template ships in the
+# niri clone; existing generated files are never overwritten.
+deploy_generated_env() {
+    local src="$1" template="$1/defaults/environment.kdl"
+    local out="$NIRI_CFG/generated/env.kdl"
+    [[ -f "$out" ]] && return 0
+    [[ -f "$template" ]] || {
+        warn "niri: env seed template missing ($template); skipping generated/env.kdl"
+        return 0
+    }
+    if (( DRY_RUN )); then
+        note "[dry-run] would seed $out with literal PATH/XDG paths"
+        return 0
+    fi
+
+    local local_bin="$HOME/.local/bin" session_path="$HOME/.local/bin"
+    local -a path_parts=()
+    local p
+    IFS=: read -r -a path_parts <<< "${PATH:-/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin}"
+    for p in "${path_parts[@]}"; do
+        [[ -n "$p" ]] || continue
+        [[ ":$session_path:" == *":$p:"* ]] && continue
+        session_path="$session_path:$p"
+    done
+
+    local wallpaper_dir="$HYPR/wallpapers"
+    local scripts_dir="$HYPR/scripts"
+    local pictures_dir="${XDG_PICTURES_DIR:-$HOME/Pictures}"
+    local videos_dir="${XDG_VIDEOS_DIR:-$HOME/Videos}"
+
+    local app_scale="1.0" app_scale_env=""
+    if have jq && [[ -f "$HYPR/settings.json" ]]; then
+        app_scale="$(jq -r '.appScale // 1.0' "$HYPR/settings.json" 2>/dev/null || printf '1.0')"
+    fi
+    [[ "$app_scale" =~ ^[0-9]+([.][0-9]+)?$ ]] || app_scale="1.0"
+    if awk -v s="$app_scale" 'BEGIN { exit !(s + 0 != 1.0) }'; then
+        local gdk_int gdk_dpi electron_factor xcursor_size
+        read -r gdk_int gdk_dpi electron_factor xcursor_size < <(
+            awk -v s="$app_scale" 'BEGIN {
+                gi = int(s + 0.0001); if (gi < 1) gi = 1;
+                printf "%d %.4f %s %d\n", gi, s / gi, s, int(24 * s)
+            }'
+        )
+        app_scale_env="$(printf '    GDK_SCALE "%s"\n    GDK_DPI_SCALE "%s"\n    ELECTRON_FORCE_DEVICE_SCALE_FACTOR "%s"\n    XCURSOR_SIZE "%s"' \
+            "$gdk_int" "$gdk_dpi" "$electron_factor" "$xcursor_size")"
+    fi
+
+    local tmp line
+    tmp="$(mktemp "${TMPDIR:-/tmp}/dotsniri-env.XXXXXX")"
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line//@SESSION_PATH@/$session_path}"
+        line="${line//@WALLPAPER_DIR@/$wallpaper_dir}"
+        line="${line//@SCRIPT_DIR@/$scripts_dir}"
+        line="${line//@XDG_PICTURES_DIR@/$pictures_dir}"
+        line="${line//@XDG_VIDEOS_DIR@/$videos_dir}"
+        line="${line//@APP_SCALE_ENV@/$app_scale_env}"
+        printf '%s\n' "$line"
+    done < "$template" > "$tmp"
+
+    run mkdir -p "$NIRI_CFG/generated"
+    run cp "$tmp" "$out"
+    rm -f "$tmp"
+    chmod 644 "$out" 2>/dev/null || true
+    ok "niri: seeded generated/env.kdl (appScale $app_scale)"
+}
+
 # niri compositor config. No --delete: generated/ fragments and user overrides
 # (for example user-*.kdl) must survive updates. `reset` handles stale files.
 deploy_niri() {
@@ -195,6 +262,8 @@ deploy_niri() {
             fi
         done
     fi
+
+    deploy_generated_env "$src"
 
     if [[ -d "$path/scripts" ]]; then
         msg "niri: session scripts -> $NIRI_CFG/scripts"

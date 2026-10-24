@@ -6,6 +6,20 @@ All notable changes to `niri-meta` are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- `deploy`: seed `~/.config/niri/generated/env.kdl` with literal HOME-derived
+  paths and the appScale block (the niri repo moved the single-occurrence
+  `environment {}` section there). Without this a meta-only install had no
+  PATH/WALLPAPER_DIR/XDG_* in the niri session.
+- `repos`: pull every shared repo the stack consumes read-only (palettes,
+  theme-sync, davincix, login, background and the shared scripts), so a
+  standalone `dotsniri` install receives the same updates as `dots`; local
+  changes are never discarded.
+- `system/install-arch.sh`: use the real Arch package name `adw-gtk-theme` and
+  move `bibata-cursor-theme` to the optional/AUR group so a missing AUR
+  package cannot fail the core pacman transaction.
+
 ## [0.3.0] - 2026-10-24
 
 ### Added

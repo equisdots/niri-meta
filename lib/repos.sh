@@ -146,16 +146,16 @@ pull_repo() {
     fi
 }
 
-# ensure_repo — clone if missing; own repos are updated. The shared bases that
-# dotsniri DEPLOYS (hyprland scripts/rofi, shell, plugin-api, plugin-sdk,
-# plugins, nyx and the timex default plugin) must stay current and are pulled
-# too. The remaining shared repos are read-only (owned by `dots`).
+# ensure_repo — clone if missing; own repos are updated. Every shared repo the
+# niri stack consumes is pulled read-only too, so a standalone dotsniri install
+# receives the same palettes, theme engine, wallpapers, login theme and shared
+# scripts as a parallel `dots` install. Local changes are never discarded.
 ensure_repo() {
     local name="$1" kind
     kind="$(repo_kind "$name")"
     if [[ -d "$(repo_path "$name")/.git" ]]; then
         case "$name" in
-            hyprland|shell|nyx|plugin-api|plugin-sdk|plugins|timex) pull_repo "$name" ;;
+            hyprland|shell|nyx|plugin-api|plugin-sdk|plugins|timex|palettes|theme-sync|davincix|login|background) pull_repo "$name" ;;
             *)
                 if [[ "$kind" == own ]]; then
                     pull_repo "$name"
