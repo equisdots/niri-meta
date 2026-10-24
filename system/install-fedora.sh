@@ -12,31 +12,85 @@ set -euo pipefail
 DRY_RUN=0
 ASSUME_YES=0
 
-# Niri stack runtime: compositor, XWayland bridge, shell, panels, portals and
-# the CLI tools the bar/panels rely on. Adjust to taste. `quickshell` and
-# `niri` may require a COPR repository depending on the Fedora release.
+# Niri stack runtime. Mirrors the Arch list with Fedora package names; the
+# exact font/theme names vary by release, so the less certain ones are in the
+# optional group below. `quickshell` and `niri` may require a COPR depending on
+# the Fedora release.
 PKGS=(
     niri
     xwayland-satellite
     quickshell
+    xdg-desktop-portal
     xdg-desktop-portal-gtk
     xdg-desktop-portal-gnome
+    swayidle
+
     cava
     playerctl
     wl-clipboard
     cliphist
     fd-find
+    ripgrep
     brightnessctl
     pamixer
+    ddcutil
     kitty
     rofi
     jq
     git
     rsync
+    curl
+    wget
+    tar
+    unzip
     python3
     libnotify
+    ImageMagick
+    ffmpeg-free
+
     grim
     slurp
+    zbar
+
+    nautilus
+    gvfs
+    gvfs-mtp
+    pavucontrol
+    network-manager-applet
+    blueman
+    gnome-keyring
+    libsecret
+    polkit-gnome
+    qt5ct
+    qt6ct
+    qt5-qtwayland
+    qt6-qtwayland
+
+    google-noto-sans-fonts
+    google-noto-emoji-fonts
+    google-noto-sans-cjk-fonts
+    adw-gtk3-theme
+    papirus-icon-theme
+
+    power-profiles-daemon
+    starship
+    zsh
+    socat
+
+    pipewire
+    pipewire-pulseaudio
+    wireplumber
+    NetworkManager
+    bluez
+    polkit
+)
+
+# Optional / COPR / third-party packages: never fatal.
+OPTIONAL_PKGS=(
+    envycontrol
+    gpu-screen-recorder
+    satty
+    bibata-cursor-theme
 )
 
 usage() {
@@ -44,7 +98,7 @@ usage() {
 install-fedora.sh — example Fedora packages for the equisdots niri stack
 
 Usage: install-fedora.sh [--dry-run] [-y|--yes] [--help]
-  --dry-run   print the dnf command and change nothing
+  --dry-run   print the dnf commands and change nothing
   -y, --yes   do not prompt
   --help      show this help
 EOF
@@ -62,6 +116,7 @@ done
 
 if (( DRY_RUN )); then
     printf 'sudo dnf install %s\n' "${PKGS[*]}"
+    printf 'optional: %s\n' "${OPTIONAL_PKGS[*]}"
     exit 0
 fi
 
@@ -71,4 +126,6 @@ if (( ! ASSUME_YES )); then
     [[ "$reply" =~ ^[Yy]$ ]] || { printf 'aborted\n'; exit 1; }
 fi
 
-sudo dnf install "${PKGS[@]}"
+sudo dnf install -y "${PKGS[@]}"
+sudo dnf install -y "${OPTIONAL_PKGS[@]}" \
+    || printf 'optional packages skipped: %s\n' "${OPTIONAL_PKGS[*]}" >&2

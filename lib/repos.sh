@@ -21,6 +21,7 @@ REPO_SPECS=(
     "own|equisdots|niri-shell"
     "own|equisdots|nyx-niri"
     "own|equisdots|niri-login"
+    "shared|equisdots|hyprland"
     "shared|equisdots|shell"
     "shared|equisdots|plugin-api"
     "shared|equisdots|plugin-sdk"
@@ -145,16 +146,16 @@ pull_repo() {
     fi
 }
 
-# ensure_repo — clone if missing; own repos are updated. The shared bases that
-# dotsniri DEPLOYS (shell, plugin-api, plugin-sdk, plugins, nyx and the timex
-# default plugin) must stay current and are pulled too. The remaining shared
-# repos are read-only (owned by `dots`).
+# ensure_repo — clone if missing; own repos are updated. Every shared repo the
+# niri stack consumes is pulled read-only too, so a standalone dotsniri install
+# receives the same palettes, theme engine, wallpapers, login theme and shared
+# scripts as a parallel `dots` install. Local changes are never discarded.
 ensure_repo() {
     local name="$1" kind
     kind="$(repo_kind "$name")"
     if [[ -d "$(repo_path "$name")/.git" ]]; then
         case "$name" in
-            shell|nyx|plugin-api|plugin-sdk|plugins|timex) pull_repo "$name" ;;
+            hyprland|shell|nyx|plugin-api|plugin-sdk|plugins|timex|palettes|theme-sync|davincix|login|background) pull_repo "$name" ;;
             *)
                 if [[ "$kind" == own ]]; then
                     pull_repo "$name"
@@ -171,7 +172,7 @@ ensure_repo() {
 # ── Commands ────────────────────────────────────────────────────────────────
 
 cmd_install() {
-    require git
+    preflight_runtime
     local name n=0
     while IFS= read -r name; do
         ensure_repo "$name" || true
@@ -195,12 +196,20 @@ cmd_install() {
         cmd_system --apply || warn "system phase failed; install niri manually and re-run 'dotsniri install'"
     fi
 
+    # User app configs after the package phase, so the kitty/starship installers
+    # find their tools already present.
+    install_niri_app_configs
+
+    if ! have xwww-daemon; then
+        note "xwww-daemon missing; run 'dotsniri system --apply' or 'dotsniri xwww' for the wallpaper daemon"
+    fi
+
     ensure_login_entry
     ok "install finished ($n/${#REPO_SPECS[@]} repos present)"
 }
 
 cmd_update() {
-    require git
+    preflight_runtime
     local name
     while IFS= read -r name; do
         ensure_repo "$name"

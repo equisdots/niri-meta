@@ -95,6 +95,80 @@ check_overlay() {
     fi
 }
 
+check_shared_scripts() {
+    local s missing=()
+    for s in "${SHARED_HYPR_SCRIPTS[@]}"; do
+        [[ -f "$HYPR/scripts/$s" ]] || missing+=("$s")
+    done
+    if (( ${#missing[@]} == 0 )); then
+        ok "shared hyprland scripts deployed (${#SHARED_HYPR_SCRIPTS[@]} files)"
+    else
+        warn "shared scripts missing: ${missing[*]} (run: dotsniri deploy)"
+        DOCTOR_FAIL=1
+    fi
+    if [[ -f "$CFG/rofi/colors.rasi" && -f "$CFG/rofi/launcher.rasi" ]]; then
+        ok "rofi themes deployed"
+    else
+        warn "rofi themes missing in $CFG/rofi (run: dotsniri deploy)"
+        DOCTOR_FAIL=1
+    fi
+}
+
+check_niri_integration() {
+    local dest="$XDG_CONFIG_HOME/systemd/user" unit missing=()
+    for unit in "${NIRI_UNITS[@]}"; do
+        [[ -f "$dest/$unit" ]] || missing+=("$unit")
+    done
+    if (( ${#missing[@]} == 0 )); then
+        ok "niri systemd user units deployed (not enabled)"
+    else
+        warn "niri systemd units missing: ${missing[*]} (run: dotsniri deploy)"
+        DOCTOR_FAIL=1
+    fi
+
+    if [[ -f "$XDG_CONFIG_HOME/xdg-desktop-portal/niri-portals.conf" ]]; then
+        ok "niri portal override deployed"
+    else
+        warn "niri portal override missing (run: dotsniri deploy)"
+        DOCTOR_FAIL=1
+    fi
+
+    if pam_quickshell_configured; then
+        ok "PAM service 'quickshell' configured"
+    else
+        warn "PAM service 'quickshell' missing (run: dotsniri system --apply; the lock screen cannot authenticate)"
+        DOCTOR_FAIL=1
+    fi
+
+    if [[ -f "$NIRI_CFG/modules/autostart.kdl" ]] \
+       && grep -q 'spawn-sh-at-startup.*niri_idle_mode\.sh[[:space:]]\+boot' "$NIRI_CFG/modules/autostart.kdl" 2>/dev/null; then
+        note "idle: owned by niri autostart (niri_idle_mode.sh boot); swayidle.service is not enabled"
+    fi
+}
+
+# Runtime tools called by the shared scripts/autostart, plus the GUI applets the
+# niri autostart starts. Core tools fail doctor; applets are only reported.
+check_system_tools() {
+    local c missing=() applets=()
+    for c in python3 curl notify-send pactl swayidle ddcutil; do
+        have "$c" || missing+=("$c")
+    done
+    if (( ${#missing[@]} == 0 )); then
+        ok "shared-script runtime tools present (python3, curl, libnotify, pactl, swayidle, ddcutil)"
+    else
+        warn "runtime tools missing: ${missing[*]} (run: dotsniri system --apply)"
+        DOCTOR_FAIL=1
+    fi
+    for c in nautilus pavucontrol nm-applet blueman-applet gnome-keyring-daemon; do
+        have "$c" || applets+=("$c")
+    done
+    if (( ${#applets[@]} == 0 )); then
+        ok "desktop applets present (nautilus, pavucontrol, nm-applet, blueman, keyring)"
+    else
+        note "desktop applets missing: ${applets[*]} (optional; run: dotsniri system --apply)"
+    fi
+}
+
 check_shell_base() {
     if [[ -f "$QS/Shell.qml" ]]; then
         ok "Quickshell shell present ($QS)"
@@ -177,10 +251,13 @@ check_settings_compositor() {
     local have_c want
     have_c="$(jq -r '.compositor // empty' "$HYPR/settings.json" 2>/dev/null || true)"
     want="$(desktop_current)"
-    if [[ "$have_c" == "$want" ]]; then
+    if [[ -z "$have_c" ]]; then
+        warn "settings.json has no compositor key (run: dotsniri desktop $want)"
+        DOCTOR_FAIL=1
+    elif [[ "$have_c" == "$want" ]]; then
         ok "settings.json compositor = $have_c"
     else
-        note "settings.json compositor='${have_c:-unset}' vs desktop='$want' (run: dotsniri desktop $want)"
+        note "settings.json compositor='$have_c' vs desktop='$want' (run: dotsniri desktop $want)"
     fi
     local bar_enabled
     bar_enabled="$(jq -r 'if (.bar.enabled // null) == null then "unset" else (.bar.enabled|tostring) end' "$HYPR/settings.json" 2>/dev/null || true)"
@@ -190,6 +267,15 @@ check_settings_compositor() {
     else
         ok "settings.json bar.enabled = $bar_enabled"
     fi
+    local wallpaper_dir
+    wallpaper_dir="$(jq -r '.wallpaperDir // empty' "$HYPR/settings.json" 2>/dev/null || true)"
+    case "$wallpaper_dir" in
+        "~"*)
+            warn "settings.json wallpaperDir starts with a literal '~' ($wallpaper_dir); run 'dotsniri deploy' to expand it"
+            DOCTOR_FAIL=1
+            ;;
+        *) [[ -n "$wallpaper_dir" ]] && ok "settings.json wallpaperDir = $wallpaper_dir" ;;
+    esac
 }
 
 cmd_doctor_selftest() {
@@ -243,6 +329,8 @@ cmd_doctor() {
     chk_bin kitty
     chk_bin rofi
     chk_bin jq
+    chk_bin python3
+    chk_bin curl
 
     if ! have niri; then
         note "niri is not installed; run 'dotsniri system --apply' to install it"
@@ -265,10 +353,15 @@ cmd_doctor() {
     check_shell_base
     check_plugins
     check_overlay
+    check_shared_scripts
     check_login_entry
     check_notification_daemon
     check_path
     check_settings_compositor
+
+    msg "system integration"
+    check_niri_integration
+    check_system_tools
 
     if (( DOCTOR_FAIL == 0 )); then
         ok "doctor: all critical checks passed"

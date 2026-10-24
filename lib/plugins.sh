@@ -73,7 +73,8 @@ plugin_scan_tsv() {
             [[ -f "${e}settings.json" ]] && pset="$(jq -c . "${e}settings.json" 2>/dev/null || echo '{}')"
             jq -r --arg base "${e%/}" --argjson pset "$pset" '
                 . as $m | select(($m.id // "") != "")
-                | ($m.toggle // ("plugins." + $m.id + ".enabled")) as $t
+                | ($m.scope // ("plugins." + $m.id)) as $scope
+                | ($m.toggle // ($scope + ".enabled")) as $t
                 | ($t | split(".")) as $p
                 | (try ($pset | getpath($p)) catch null) as $v
                 | [ $m.id, ($m.name // $m.id), ($m.version // "-"), ($m.type // "-"),
@@ -87,7 +88,11 @@ plugin_scan_tsv() {
 plugin_set_toggle() {
     local id="$1" on="$2" dir="$HYPR/plugins/$id" manifest="$HYPR/plugins/$id/plugin.json" toggle file path tmp val
     [[ -f "$manifest" ]] || die "plugin $id is not installed (run: dotsniri plugins list)"
-    toggle="$(jq -r '.toggle // empty' "$manifest" 2>/dev/null || true)"
+    # Same resolution as shell/core/scripts/plugins_scan.sh: the manifest scope
+    # defaults to plugins.<id>, the toggle to <scope>.enabled.
+    toggle="$(jq -r --arg id "$id" '
+        (.scope // ("plugins." + $id)) as $scope
+        | (.toggle // ($scope + ".enabled"))' "$manifest" 2>/dev/null || true)"
     [[ -n "$toggle" ]] || toggle="plugins.$id.enabled"
     file="$dir/settings.json"
     path="$(jq -nc --arg t "$toggle" '$t | split(".")')"

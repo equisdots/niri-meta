@@ -46,6 +46,21 @@ WAYLAND_SESSIONS="$XDG_DATA_HOME/wayland-sessions"
 OVERLAY_ROOT="$STATE/overlay"
 DESKTOP_STATE="$STATE/desktop"
 
+# Shared Hyprland scripts the niri keybinds/autostart still call. They are
+# deployed read-only from the shared `hyprland` clone into $HYPR/scripts/.
+SHARED_HYPR_SCRIPTS=(
+    caching.sh
+    ws-desktops-lib.sh
+    qs_manager.sh
+    lock.sh
+    volume.sh
+    brightness.sh
+    reload.sh
+    init.sh
+    update_notifier.sh
+    volume_listener.sh
+)
+
 # ── Global flags ────────────────────────────────────────────────────────────
 DRY_RUN=0
 ASSUME_YES=0
@@ -86,6 +101,17 @@ confirm() {
     [[ "$reply" =~ ^[Yy]$ ]]
 }
 
+# as_root <cmd...> — run a privileged command (sudo when not root).
+as_root() {
+    if [[ "$(id -u)" -eq 0 ]]; then
+        "$@"
+    elif have sudo; then
+        sudo "$@"
+    else
+        die "root or sudo is required for: $*"
+    fi
+}
+
 # prune_empty_parents <file-inside-stop> <stop-dir>
 # Removes now-empty directories between a file's parent and <stop-dir>.
 prune_empty_parents() {
@@ -116,6 +142,7 @@ Commands:
   desktop <mode>     select the default session: niri | hyprland | both
   login <action>     manage the DM session entry: install | remove | status
   system [--apply]   install distro packages (niri, portals, ...) via templates
+  xwww [--force]     install/align the pinned xwww wallpaper daemon (sudo)
   plugins <action>   list | available | add | remove | enable | disable
   version            print the dotsniri version
   help               show this help
@@ -180,11 +207,24 @@ dotsniri plugins [list|available|add <id>|remove <id>|enable|disable <id>]
 EOF
             ;;
         system) cat <<'EOF'
-dotsniri system [--apply]
+dotsniri system [--apply] [--pam|--no-pam] [--xwww|--no-xwww] [--login]
   Resolves the distro (ID, then ID_LIKE) to a system/install-<distro>.sh
   template and installs the niri stack packages (compositor, portals, shell
   tools). Without --apply it only prints the plan. Arch and Fedora templates
   ship as examples; the core stays distro-agnostic.
+
+  Integration steps (with --apply):
+    --pam       install /etc/pam.d/quickshell for the lock screen (asks first)
+    --no-pam    never touch PAM
+    --xwww      install/align the pinned xwww release (default; --no-xwww skips)
+    --login     run login/install.sh (SDDM theme + select SDDM; opt-in only)
+EOF
+            ;;
+        xwww) cat <<'EOF'
+dotsniri xwww [--force] [-n]
+  Installs the pinned xwww release (checksum-verified) into /usr/local/bin,
+  falling back to a source build. Aligns an older installed binary with the
+  pin; --force reinstalls even when it already matches.
 EOF
             ;;
         *) usage ;;
