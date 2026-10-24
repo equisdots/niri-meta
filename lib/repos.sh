@@ -196,6 +196,10 @@ cmd_install() {
         cmd_system --apply || warn "system phase failed; install niri manually and re-run 'dotsniri install'"
     fi
 
+    # User app configs after the package phase, so the kitty/starship installers
+    # find their tools already present.
+    install_niri_app_configs
+
     if ! have xwww-daemon; then
         note "xwww-daemon missing; run 'dotsniri system --apply' or 'dotsniri xwww' for the wallpaper daemon"
     fi

@@ -7,7 +7,7 @@ install is never modified and the two stacks can coexist on the same machine.
 
 `dotsniri` owns the niri compositor, the niri overlays and the display-manager
 session entry. It also deploys the shared Quickshell `shell` base, the shared
-`hyprland` helper scripts/rofi themes, the plugin standard (`plugin-api`,
+`hyprland` helper scripts, the niri app configs, the plugin standard (`plugin-api`,
 `plugin-sdk`, the `plugins` hub), the plugin set and the merged settings, so it
 works standalone without `dots`. The remaining shared `equisdots` repos are
 consumed read-only from `~/.local/share/equisdots` and remain owned by `dots`.
@@ -54,7 +54,7 @@ install instruction.
 | Command | What it does |
 | --- | --- |
 | `setup` | `install`, default to niri on a fresh install, then run the system package phase when niri is missing (or with `--system`) |
-| `install` | clone/update the own repos plus the shared bases (`hyprland` scripts/rofi, shell, plugins), default the desktop to niri, deploy, bootstrap packages when niri is missing, and ensure the login entry |
+| `install` | clone/update the own repos plus the shared bases (`hyprland` scripts, shell, plugins), default the desktop to niri, deploy, install the user app configs (kitty/starship/nvim/Hack Nerd Font), bootstrap packages when niri is missing, and ensure the login entry |
 | `deploy` | deploy from the existing clones (no clone or update), in phases |
 | `update` | pull the own repos plus the shared bases, then re-deploy |
 | `list` | managed repos with their kind (`own` / `shared`) and state |
@@ -78,19 +78,19 @@ nothing), `-h/--help`.
 `own` repos are cloned into `~/.local/share/equisdots-niri/<repo>`, updated by
 `dotsniri` and deployed by it. `shared` repos live in
 `~/.local/share/equisdots/<repo>`: `dotsniri` clones them if missing. The shared
-bases that `dotsniri` deploys (`hyprland` scripts/rofi, `shell`, `plugin-api`,
+bases that `dotsniri` deploys (`hyprland` scripts, `shell`, `plugin-api`,
 `plugin-sdk`, `plugins`, `nyx`, `timex`) are pulled and redeployed too; the
 remaining shared repos are read-only and are only updated by `dots`. Pulling a
 shared clone never edits it.
 
 | Kind | Repo | Role |
 | --- | --- | --- |
-| own | [niri](https://github.com/equisdots/niri) | niri compositor config (`config.kdl` + modules + scripts + units/portal) |
+| own | [niri](https://github.com/equisdots/niri) | niri compositor config (`config.kdl` + modules + scripts + units/portal) and the standalone app configs (`config/apps`, kitty/starship/nvim installer) |
 | own | [niri-shell](https://github.com/equisdots/niri-shell) | shell overlay (Niri backend, niri scripts) merged into the shared shell |
 | own | [nyx-niri](https://github.com/equisdots/nyx-niri) | nyx mascot island overlay (compositor-neutral) merged into the shared shell |
 | own | [niri-login](https://github.com/equisdots/niri-login) | Wayland session entry installer (so DMs list "Niri") |
 | own | niri-meta | this meta installer |
-| shared | [hyprland](https://github.com/equisdots/hyprland) | shared helper scripts still called by the niri keybinds/autostart, rofi themes and the PAM file (read-only; its compositor config is never deployed) |
+| shared | [hyprland](https://github.com/equisdots/hyprland) | shared helper scripts still called by the niri keybinds/autostart and the PAM file (read-only; its compositor config is never deployed) |
 | shared | [shell](https://github.com/equisdots/shell) | Quickshell desktop UI (pulled and deployed as the base for the niri-shell overlay) |
 | shared | [plugin-api](https://github.com/equisdots/plugin-api) | plugin manifest schema, host API version and compat evaluator |
 | shared | [plugin-sdk](https://github.com/equisdots/plugin-sdk) | QML host kit installed at `core/sdk` |
@@ -111,7 +111,7 @@ wallpapers, shell). Only the compositor config moves, to `~/.config/niri`.
 first and the overlays are applied last, which means a base or plugin deploy can
 never wipe an applied overlay:
 
-1. shared base: the `hyprland` scripts/rofi, `shell`, `plugin-api`,
+1. shared base: the `hyprland` scripts, `shell`, `plugin-api`,
    `plugin-sdk`, the `plugins` registry and the settings merge;
 2. plugins: `nyx` plus the default plugin set (`screenshots`, `timex`,
    `rss-reader`, `clipboard`, `quicknotes`, `file-search`, `sysmon`, `keybinds`);
@@ -125,7 +125,7 @@ never wipe an applied overlay:
 | `niri` `systemd/*.service` | `~/.config/systemd/user/` | copied, **not enabled** (autostart owns the daemons); `daemon-reload` is best effort |
 | `niri` `portals/niri-portals.conf` | `~/.config/xdg-desktop-portal/niri-portals.conf` | per-user portal backend selection, no sudo |
 | `hyprland` `scripts/*.sh` | `~/.config/hypr/scripts/` | shared helpers (`qs_manager`, `lock`, `volume`, `brightness`, `reload`, `init`, listeners); no `--delete` |
-| `hyprland` `config/rofi/` | `~/.config/rofi/` | copied when missing/changed; an existing dir is backed up under `~/.local/state/equisdots-niri/backups/rofi-*` |
+| `niri` `config/apps/rofi/` + `cava/` | `~/.config/rofi/` + `~/.config/cava/` | copied when missing/changed; an existing dir is backed up under `~/.local/state/equisdots-niri/backups/{rofi,cava}-*` |
 | `hyprland` `config/pam.d/quickshell` | `/etc/pam.d/quickshell` | system phase only, sudo, prompt/`--pam`, backs up an existing service |
 | `shell` (base) | `~/.config/hypr/scripts/quickshell/` | Quickshell UI; `dock/`, `ui/plugins/`, `core/sdk/`, the plugin contract files and `docs/` excluded |
 | `plugin-api` | `.../quickshell/plugin-api.json` + `core/scripts/plugins_compat.sh` | normative contract + compat evaluator |
@@ -182,14 +182,14 @@ replaced by a niri-only variant unless the niri session is selected.
   `~/.local/share/equisdots` is never modified.
 - Shared repos (`hyprland`, `shell`, `plugin-api`, `plugin-sdk`, `plugins`,
   `nyx`, `palettes`, `theme-sync`, `davincix`, `timex`, `login`, `background`)
-  are cloned if missing; the `hyprland` scripts/rofi and the shell/plugin bases
+  are cloned if missing; the `hyprland` scripts and the shell/plugin bases
   are deployed, so `dotsniri` works standalone without `dots`. The shared
   `hyprland`, `shell` and `nyx` clones are kept current by `dotsniri` (they are
   the base the keybinds/overlays sit on); the other shared clones are read-only
   and only `dots update` changes them.
 - The shared `hyprland` compositor config (`config/hypr/*.lua`) is never
-  deployed; only `scripts/*.sh`, `config/rofi/` and (system phase)
-  `config/pam.d/quickshell` are consumed.
+  deployed; only `scripts/*.sh` and (system phase) `config/pam.d/quickshell`
+  are consumed. Rofi/cava come from the niri repo, not from `hyprland`.
 - `niri/systemd/*.service` are copied but not enabled: `modules/autostart.kdl`
   already starts the shell, xwww, the focus daemon and, when the niri repo
   ships the hook, `niri_idle_mode.sh boot`. Enabling the matching units would

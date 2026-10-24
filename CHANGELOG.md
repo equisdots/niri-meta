@@ -6,6 +6,16 @@ All notable changes to `niri-meta` are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `install` now runs the niri repo's standalone app config installer
+  (kitty/starship/nvim/Hack Nerd Font) after the deploy. `DOTSNIRI_NO_APPS=1`
+  skips it; `deploy`/`update` stay offline.
+- `deploy` installs rofi/cava from the niri repo (`config/apps/`) instead of
+  consuming `hyprland/config/rofi`, removing the last config dependency on the
+  Hyprland repository. Existing dirs are backed up under
+  `~/.local/state/equisdots-niri/backups/{rofi,cava}-*`.
+
 ### Fixed
 
 - `deploy`: seed `~/.config/niri/generated/env.kdl` with literal HOME-derived

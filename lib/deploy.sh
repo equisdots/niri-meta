@@ -8,7 +8,7 @@
 #   niri          systemd/      -> ~/.config/systemd/user/    (units, not enabled)
 #   niri          portals/      -> ~/.config/xdg-desktop-portal/niri-portals.conf
 #   hyprland      scripts/      -> ~/.config/hypr/scripts/    (shared, no delete)
-#   hyprland      config/rofi/  -> ~/.config/rofi/            (backup on overwrite)
+#   niri          config/apps/  -> ~/.config/rofi + cava      (backup on change)
 #   niri-shell    overlay/      -> ~/.config/hypr/scripts/quickshell  (merge)
 #   plugin-api    contract      -> .../quickshell/plugin-api.json + compat
 #   plugin-sdk    QML kit       -> .../quickshell/core/sdk/
@@ -274,9 +274,18 @@ deploy_niri() {
         fi
     fi
 
+    deploy_niri_apps "$path"
     deploy_niri_units "$path"
     deploy_niri_portal "$path"
     ok "niri deployed"
+}
+
+# Rofi/cava configs are owned by the niri repository (config/apps/), so the
+# niri stack does not depend on the equisdots/hyprland repo for them.
+deploy_niri_apps() {
+    local path="$1" apps="$1/config/apps"
+    [[ -d "$apps/rofi" ]] && deploy_rofi "$apps/rofi"
+    [[ -d "$apps/cava" ]] && deploy_cava "$apps/cava"
 }
 
 # Optional user units. They are copied, never enabled: the niri autostart
@@ -352,7 +361,7 @@ deploy_overlay_repo() {
 # scripts the niri keybinds/autostart call (never delete user scripts) and the
 # rofi themes. Its compositor config is NOT deployed (niri owns the compositor).
 deploy_hyprland_shared() {
-    local path="$1" src="$path/scripts" rofi="$path/config/rofi"
+    local path="$1" src="$path/scripts"
     if [[ -d "$src" ]]; then
         msg "hyprland: shared scripts -> $HYPR/scripts"
         run mkdir -p "$HYPR/scripts"
@@ -365,11 +374,7 @@ deploy_hyprland_shared() {
         warn "hyprland: scripts/ missing in the clone"
     fi
 
-    if [[ -d "$rofi" ]]; then
-        deploy_rofi "$rofi"
-    else
-        warn "hyprland: config/rofi missing in the clone"
-    fi
+    note "rofi/cava: deployed from the niri repository (config/apps/)"
 }
 
 # Rofi themes: copy only when the destination is missing or changed. On the
@@ -406,6 +411,54 @@ deploy_rofi() {
     run mkdir -p "$dest"
     run rsync -a --exclude '.git*' "$src/" "$dest/"
     ok "rofi themes deployed"
+}
+
+# Cava config from the niri repo (same backup/compare contract as rofi).
+deploy_cava() {
+    local src="$1" dest="$CFG/cava" backup rel changed=0
+    backup="$STATE/backups/cava-$(date +%Y%m%d_%H%M%S)"
+    if [[ -d "$dest" ]]; then
+        while IFS= read -r -d '' rel; do
+            rel="${rel#./}"
+            if [[ ! -f "$dest/$rel" ]] || ! cmp -s "$src/$rel" "$dest/$rel"; then
+                changed=1
+                break
+            fi
+        done < <(cd "$src" && find . -type f -print0)
+        if [[ "$changed" -eq 0 ]]; then
+            note "cava: config up to date (left untouched)"
+            return 0
+        fi
+        msg "cava: ~/.config/cava differs; backing it up to $backup"
+        if (( DRY_RUN )); then
+            note "[dry-run] would back up $dest before updating"
+        else
+            mkdir -p "$backup"
+            cp -a "$dest/." "$backup/"
+            ok "cava backup -> $backup"
+        fi
+    else
+        msg "cava: config -> $dest"
+    fi
+    run mkdir -p "$dest"
+    run rsync -a --exclude '.git*' "$src/" "$dest/"
+    ok "cava config deployed"
+}
+
+# User app configs (kitty, starship, nvim, Hack Nerd Font). Run on `install`,
+# not on `deploy`/`update`, and never under --dry-run. DOTSNIRI_NO_APPS=1 skips.
+install_niri_app_configs() {
+    [[ "${DOTSNIRI_NO_APPS:-0}" == "1" ]] && { note "app configs: skipped (DOTSNIRI_NO_APPS=1)"; return 0; }
+    local script; script="$(repo_path niri)/scripts/install-app-configs.sh"
+    [[ -f "$script" ]] || { warn "app configs: $script not found; skipping"; return 0; }
+    if (( DRY_RUN )); then
+        note "[dry-run] would run $script"
+        return 0
+    fi
+    local args=()
+    (( ASSUME_YES )) && args+=("-y")
+    msg "app configs: kitty, starship, nvim, Hack Nerd Font"
+    bash "$script" "${args[@]}" || warn "app configs finished with warnings"
 }
 
 deploy_palettes() {
