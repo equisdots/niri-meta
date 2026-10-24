@@ -286,6 +286,7 @@ deploy_niri_apps() {
     local path="$1" apps="$1/config/apps"
     [[ -d "$apps/rofi" ]] && deploy_rofi "$apps/rofi"
     [[ -d "$apps/cava" ]] && deploy_cava "$apps/cava"
+    return 0
 }
 
 # Optional user units. They are copied, never enabled: the niri autostart
