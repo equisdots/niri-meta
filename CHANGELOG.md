@@ -6,8 +6,47 @@ All notable changes to `niri-meta` are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-24
+
 ### Added
 
+- Shared `hyprland` repo parity: the read-only clone now supplies the helper
+  scripts the niri keybinds/autostart call (`qs_manager`, `lock`, `volume`,
+  `brightness`, `reload`, `init`, the listeners and their libs) into
+  `~/.config/hypr/scripts/` **without `--delete`**, plus the rofi themes into
+  `~/.config/rofi/` (existing dir backed up under the dotsniri state dir). Its
+  compositor config is never deployed.
+- `niri/systemd/*.service` deploy to `~/.config/systemd/user` (copied, not
+  enabled) with a best-effort `systemctl --user daemon-reload`, and
+  `niri/portals/niri-portals.conf` deploys per-user to
+  `~/.config/xdg-desktop-portal/` (no sudo). `reset`/`uninstall` clean both.
+  Idle ownership is documented: when the niri autostart starts
+  `niri_idle_mode.sh boot`, swayidle is not enabled (no duplicate daemon).
+- Full settings-merge parity with `dots`: `settings.json` is seeded when
+  absent, `default_settings.json` is refreshed from the shared `hyprland`
+  clone (vendored fallback), then defaults + user values are merged with `jq`:
+  `dock` → `bar`, legacy keys dropped, new sections/`bar.enabled`/`plugins`
+  added, and a leading `~` in `wallpaperDir` expanded to `$HOME`. User choices
+  are never overwritten.
+- Fresh-bootstrap preflight: `install`/`deploy`/`update` check `git`, `rsync`
+  and `jq`; when a distro template exists they run the system phase first and
+  retry. The curl one-liner now falls back to the source tarball
+  (`curl`/`wget` + `tar`) when git is unavailable.
+- System integration: pinned `xwww` release installer (`dotsniri xwww`, source
+  build fallback, `--dry-run`), PAM service installation for the Quickshell
+  lock screen (`/etc/pam.d/quickshell`, prompt/`--pam`, backup, no silent
+  changes), and SDDM theme installation only with the explicit
+  `system --login` opt-in (never changes the display manager silently).
+- `doctor` checks the shared scripts, rofi themes, niri units/portal, the
+  `quickshell` PAM service, the `wallpaperDir` literal `~`, and a
+  shared-scripts/system-package summary.
+- Arch/Fedora templates now include the missing runtime packages (kitty, rofi,
+  playerctl, brightnessctl, pamixer, ddcutil, nautilus, pavucontrol,
+  network-manager-applet, blueman, gnome-keyring, a polkit agent, qt5ct/qt6ct,
+  noto fonts, adw-gtk3, papirus, bibata, fd, ripgrep, imagemagick, ffmpeg,
+  cava, power-profiles-daemon, satty, zbar, starship, zsh, ...) and install
+  optional/AUR/COPR packages separately and non-fatally. `python3` was
+  corrected to `python` on Arch.
 - Plugin-standard parity with the merged Hyprland stack: shared repos
   `plugin-api`, `plugin-sdk` and `plugins` are cloned and deployed; the deploy
   installs `plugin-api.json` + the compat evaluator, `core/sdk/`, the
@@ -32,6 +71,11 @@ All notable changes to `niri-meta` are documented here. The format follows
 
 ### Fixed
 
+- `plugins enable|disable` (and the list state) now resolve the toggle exactly
+  like `shell/core/scripts/plugins_scan.sh`: `scope = manifest.scope ||
+  plugins.<id>`, `toggle = manifest.toggle || <scope>.enabled`, written to the
+  plugin's own `settings.json`. Manifests with a custom scope (for example
+  `nyx`/`mascots`, `batteryplus`) no longer read/write the wrong key.
 - `deploy` seeds the single-occurrence generated sections
   (`generated/user-input.kdl`, `generated/user-animations.kdl`,
   `generated/blur.kdl`) from the niri repo's `defaults/` only when missing, so a
@@ -43,12 +87,12 @@ All notable changes to `niri-meta` are documented here. The format follows
 - `shell` deploy excludes the plugin-owned paths (`ui/plugins/`,
   `core/sdk/`, `plugin-api.json`, `plugins_compat.sh`, `plugins-registry.json`,
   `plugin-*.qml`) and purges the legacy `ui/nyx` location.
-- `deploy` now runs in four phases (base + plugin host, plugins, niri payload,
-  overlays).
+- `deploy` now runs in four phases (base + shared hyprland scripts/rofi +
+  plugin host, plugins, niri payload + units/portal, overlays).
+- Shared repo pulls now include `hyprland` (scripts/rofi are deployed),
+  alongside `shell`, `plugin-api`, `plugin-sdk`, `plugins` and `timex`.
 - `timex` is no longer deployed as a `~/.local/bin/timex` wrapper +
   `ui/timex`; it ships as a default plugin like on the Hyprland stack.
-- Shared `shell`, `plugin-api`, `plugin-sdk`, `plugins` and `timex` clones are
-  pulled on install/update (they are deployed siblings).
 
 ### Added (previous)
 
@@ -136,5 +180,6 @@ All notable changes to `niri-meta` are documented here. The format follows
 - Deferred, distro-agnostic system integration: a `system` verb and a pluggable
   `system/` directory with Arch and Fedora example templates only.
 
-[Unreleased]: https://github.com/equisdots/niri-meta/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/equisdots/niri-meta/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/equisdots/niri-meta/compare/v0.1.0...v0.3.0
 [0.1.0]: https://github.com/equisdots/niri-meta/releases/tag/v0.1.0

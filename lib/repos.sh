@@ -21,6 +21,7 @@ REPO_SPECS=(
     "own|equisdots|niri-shell"
     "own|equisdots|nyx-niri"
     "own|equisdots|niri-login"
+    "shared|equisdots|hyprland"
     "shared|equisdots|shell"
     "shared|equisdots|plugin-api"
     "shared|equisdots|plugin-sdk"
@@ -146,15 +147,15 @@ pull_repo() {
 }
 
 # ensure_repo — clone if missing; own repos are updated. The shared bases that
-# dotsniri DEPLOYS (shell, plugin-api, plugin-sdk, plugins, nyx and the timex
-# default plugin) must stay current and are pulled too. The remaining shared
-# repos are read-only (owned by `dots`).
+# dotsniri DEPLOYS (hyprland scripts/rofi, shell, plugin-api, plugin-sdk,
+# plugins, nyx and the timex default plugin) must stay current and are pulled
+# too. The remaining shared repos are read-only (owned by `dots`).
 ensure_repo() {
     local name="$1" kind
     kind="$(repo_kind "$name")"
     if [[ -d "$(repo_path "$name")/.git" ]]; then
         case "$name" in
-            shell|nyx|plugin-api|plugin-sdk|plugins|timex) pull_repo "$name" ;;
+            hyprland|shell|nyx|plugin-api|plugin-sdk|plugins|timex) pull_repo "$name" ;;
             *)
                 if [[ "$kind" == own ]]; then
                     pull_repo "$name"
@@ -171,7 +172,7 @@ ensure_repo() {
 # ── Commands ────────────────────────────────────────────────────────────────
 
 cmd_install() {
-    require git
+    preflight_runtime
     local name n=0
     while IFS= read -r name; do
         ensure_repo "$name" || true
@@ -195,12 +196,16 @@ cmd_install() {
         cmd_system --apply || warn "system phase failed; install niri manually and re-run 'dotsniri install'"
     fi
 
+    if ! have xwww-daemon; then
+        note "xwww-daemon missing; run 'dotsniri system --apply' or 'dotsniri xwww' for the wallpaper daemon"
+    fi
+
     ensure_login_entry
     ok "install finished ($n/${#REPO_SPECS[@]} repos present)"
 }
 
 cmd_update() {
-    require git
+    preflight_runtime
     local name
     while IFS= read -r name; do
         ensure_repo "$name"

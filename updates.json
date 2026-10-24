@@ -1,12 +1,13 @@
 {
-  "version": "0.2.0",
-  "date": "2026-10-17",
+  "version": "0.3.0",
+  "date": "2026-10-24",
   "changelog": [
-    "Plugin-standard parity: plugin-api, plugin-sdk, the plugin hub and the default plugin set deploy on niri",
-    "NyX is deployed as a root-level plugin; the nyx-niri overlay follows ui/plugins/nyx",
-    "dotsniri plugins list|available|add|remove|enable|disable (same convention as dots plugins)",
-    "The Plugins panel (SUPER+SHIFT+M) and the plugin settings pages work on niri",
-    "Shared defaults re-synced (bar.enabled, plugins, no barEngine/mascots)",
-    "Doctor checks the plugin standard, the Plugins panel and every default plugin payload"
+    "Shared hyprland scripts/rofi deploy read-only (qs_manager, lock, volume, brightness, ...)",
+    "Settings merge parity: defaults + user values, dock->bar, legacy keys, bar.enabled/plugins, ~ expansion",
+    "niri systemd user units and per-user portal override deploy, with reset/uninstall cleanup",
+    "Plugin enable/disable honours manifest scope and the plugin's own settings.json",
+    "Bootstrap preflight installs git/rsync/jq via the system phase; tarball fallback for the one-liner",
+    "Pinned xwww installer, PAM service for the lock screen, opt-in SDDM theme, expanded Arch/Fedora packages",
+    "Doctor checks shared scripts, units/portal, PAM, settings and the runtime package summary"
   ]
 }

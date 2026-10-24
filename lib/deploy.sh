@@ -5,6 +5,10 @@
 # Deploy map:
 #   niri          config/niri/  -> ~/.config/niri/            (compositor config)
 #   niri          scripts/      -> ~/.config/niri/scripts/
+#   niri          systemd/      -> ~/.config/systemd/user/    (units, not enabled)
+#   niri          portals/      -> ~/.config/xdg-desktop-portal/niri-portals.conf
+#   hyprland      scripts/      -> ~/.config/hypr/scripts/    (shared, no delete)
+#   hyprland      config/rofi/  -> ~/.config/rofi/            (backup on overwrite)
 #   niri-shell    overlay/      -> ~/.config/hypr/scripts/quickshell  (merge)
 #   plugin-api    contract      -> .../quickshell/plugin-api.json + compat
 #   plugin-sdk    QML kit       -> .../quickshell/core/sdk/
@@ -36,18 +40,20 @@ DEFAULT_PLUGINS=(screenshots timex rss-reader clipboard quicknotes file-search s
 # ── Commands ────────────────────────────────────────────────────────────────
 
 cmd_deploy() {
-    require rsync jq
+    preflight_runtime
     local name
 
-    # Phase 1: shared base payloads. The shell, the plugin contract/SDK and the
-    # plugin hub are deployed first so the plugin subset below lands on a valid
-    # host. This keeps dotsniri standalone (no `dots` run required) while
-    # remaining idempotent and read-only toward `dots`.
+    # Phase 1: shared base payloads. The shell, the plugin contract/SDK, the
+    # plugin hub and the shared Hyprland scripts (still called by the niri
+    # keybinds/autostart) are deployed first so the plugin subset below lands
+    # on a valid host. This keeps dotsniri standalone (no `dots` run required)
+    # while remaining idempotent and read-only toward `dots`.
     deploy_repo shell
     deploy_repo plugin-api
     deploy_repo plugin-sdk
     deploy_repo plugins
-    deploy_settings_seed
+    deploy_repo hyprland
+    deploy_settings
 
     # Phase 2: plugins. Nyx (a root-level plugin repo) and the default plugin
     # set deploy through the generic convention (UI -> shell tree, runtime ->
@@ -59,7 +65,7 @@ cmd_deploy() {
     # handled last so a base/plugin deploy can never wipe them).
     while IFS= read -r name; do
         case "$name" in
-            shell|nyx|timex|plugin-api|plugin-sdk|plugins|niri-shell|nyx-niri) continue ;;
+            hyprland|shell|nyx|timex|plugin-api|plugin-sdk|plugins|niri-shell|nyx-niri) continue ;;
         esac
         deploy_repo "$name"
     done < <(repos_all)
@@ -88,11 +94,12 @@ write_version_state() {
 }
 
 cmd_setup() {
-    local do_system=0 arg args=()
+    local do_system=0 arg sys_args=(--apply)
     for arg in "$@"; do
         case "$arg" in
             --system|--with-system) do_system=1 ;;
-            *) args+=("$arg") ;;
+            --pam|--no-pam|--xwww|--no-xwww|--login|--no-login)
+                sys_args+=("$arg") ;;
         esac
     done
 
@@ -107,7 +114,7 @@ cmd_setup() {
     fi
 
     if [[ "$do_system" -eq 1 ]] || ! have niri; then
-        cmd_system --apply || warn "system phase failed; the payload is installed"
+        cmd_system "${sys_args[@]}" || warn "system phase failed; the payload is installed"
     else
         note "niri is present; run 'dotsniri system' to (re)install packages"
     fi
@@ -129,6 +136,7 @@ deploy_repo() {
         niri-shell)  deploy_niri_shell "$path" ;;
         nyx-niri)    deploy_nyx_niri "$path" ;;
         niri-login)  note "niri-login: session entry is installed by 'dotsniri login' (needs sudo)" ;;
+        hyprland)    deploy_hyprland_shared "$path" ;;
         shell)       deploy_shell "$path" ;;
         plugin-api)  deploy_plugin_api "$path" ;;
         plugin-sdk)  deploy_plugin_sdk "$path" ;;
@@ -196,7 +204,53 @@ deploy_niri() {
             find "$NIRI_CFG/scripts" -name '*.sh' -exec chmod +x {} + 2>/dev/null || true
         fi
     fi
+
+    deploy_niri_units "$path"
+    deploy_niri_portal "$path"
     ok "niri deployed"
+}
+
+# Optional user units. They are copied, never enabled: the niri autostart
+# already starts the shell, xwww, the focus daemon and (when the niri repo
+# ships the hook) `niri_idle_mode.sh boot`, so enabling the matching units
+# would start every daemon twice. `niri_idle_mode.sh` detects the deployed
+# swayidle.service and drives it on demand.
+deploy_niri_units() {
+    local path="$1" src="$1/systemd" dest="$XDG_CONFIG_HOME/systemd/user" f n=0
+    [[ -d "$src" ]] || return 0
+    msg "niri: user units -> $dest (not enabled)"
+    run mkdir -p "$dest"
+    for f in "$src"/*.service; do
+        [[ -f "$f" ]] || continue
+        run cp -f "$f" "$dest/"
+        n=$((n + 1))
+    done
+    if (( DRY_RUN )); then
+        note "[dry-run] would run: systemctl --user daemon-reload"
+    elif have systemctl; then
+        systemctl --user daemon-reload 2>/dev/null \
+            || warn "systemctl --user daemon-reload failed (unit files are in place)"
+    fi
+    if [[ -f "$NIRI_CFG/modules/autostart.kdl" ]] \
+       && grep -q 'spawn-sh-at-startup.*niri_idle_mode\.sh[[:space:]]\+boot' "$NIRI_CFG/modules/autostart.kdl" 2>/dev/null; then
+        note "idle: niri autostart owns idle (niri_idle_mode.sh boot); swayidle.service stays disabled"
+    else
+        note "idle: no autostart idle hook; attach swayidle.service with: systemctl --user add-wants niri.service swayidle.service"
+    fi
+    ok "niri units deployed ($n files)"
+}
+
+# Per-user portal override (no sudo). It lets xdg-desktop-portal pick the
+# GNOME/GTK backends for the niri session; a distro package may also provide a
+# system-wide copy, but the user-level file wins and works without root.
+deploy_niri_portal() {
+    local path="$1" src="$1/portals/niri-portals.conf"
+    local dest="$XDG_CONFIG_HOME/xdg-desktop-portal/niri-portals.conf"
+    [[ -f "$src" ]] || return 0
+    msg "niri: portals -> $dest"
+    run mkdir -p "$(dirname "$dest")"
+    run cp -f "$src" "$dest"
+    ok "niri portals deployed"
 }
 
 deploy_niri_shell() {
@@ -223,6 +277,66 @@ deploy_overlay_repo() {
         note "$name: session is '$(desktop_current)'; overlay not applied"
         overlay_remove "$name"
     fi
+}
+
+# Shared Hyprland payload that is still part of the niri session: the helper
+# scripts the niri keybinds/autostart call (never delete user scripts) and the
+# rofi themes. Its compositor config is NOT deployed (niri owns the compositor).
+deploy_hyprland_shared() {
+    local path="$1" src="$path/scripts" rofi="$path/config/rofi"
+    if [[ -d "$src" ]]; then
+        msg "hyprland: shared scripts -> $HYPR/scripts"
+        run mkdir -p "$HYPR/scripts"
+        run rsync -a --exclude '.git*' "$src/" "$HYPR/scripts/"
+        if (( ! DRY_RUN )); then
+            find "$HYPR/scripts" -maxdepth 1 -name '*.sh' -exec chmod +x {} + 2>/dev/null || true
+        fi
+        ok "shared scripts deployed"
+    else
+        warn "hyprland: scripts/ missing in the clone"
+    fi
+
+    if [[ -d "$rofi" ]]; then
+        deploy_rofi "$rofi"
+    else
+        warn "hyprland: config/rofi missing in the clone"
+    fi
+}
+
+# Rofi themes: copy only when the destination is missing or changed. On the
+# first change an existing ~/.config/rofi is backed up under the dotsniri
+# state directory before it is merged, so local edits are never lost.
+deploy_rofi() {
+    local src="$1" dest="$CFG/rofi" backup rel changed=0
+    backup="$STATE/backups/rofi-$(date +%Y%m%d_%H%M%S)"
+
+    if [[ -d "$dest" ]]; then
+        while IFS= read -r -d '' rel; do
+            rel="${rel#./}"
+            if [[ ! -f "$dest/$rel" ]] || ! cmp -s "$src/$rel" "$dest/$rel"; then
+                changed=1
+                break
+            fi
+        done < <(cd "$src" && find . -type f -print0)
+        if [[ "$changed" -eq 0 ]]; then
+            note "rofi: themes up to date (left untouched)"
+            return 0
+        fi
+        msg "rofi: ~/.config/rofi differs; backing it up to $backup"
+        if (( DRY_RUN )); then
+            note "[dry-run] would back up $dest before updating"
+        else
+            mkdir -p "$backup"
+            cp -a "$dest/." "$backup/"
+            ok "rofi backup -> $backup"
+        fi
+    else
+        msg "rofi: themes -> $dest"
+    fi
+
+    run mkdir -p "$dest"
+    run rsync -a --exclude '.git*' "$src/" "$dest/"
+    ok "rofi themes deployed"
 }
 
 deploy_palettes() {
@@ -365,19 +479,69 @@ deploy_default_plugins() {
     done
 }
 
-# Seed settings.json from the vendored default only when absent. Never
-# overwrite user config, and never perform the defaults+overrides merge that
-# `dots` owns.
-deploy_settings_seed() {
-    local def="$ROOT_DIR/share/default_settings.json"
-    [[ -f "$def" ]] || return 0
-    if [[ ! -f "$HYPR/default_settings.json" ]]; then
-        run mkdir -p "$HYPR"
-        run cp "$def" "$HYPR/default_settings.json"
+# Canonical defaults: prefer the shared hyprland clone (kept current by
+# `dots`/dotsniri), then the vendored copy so a standalone install works.
+settings_default_file() {
+    local root shared
+    root="$(repo_path hyprland 2>/dev/null || true)"
+    if [[ -n "$root" ]]; then
+        shared="$root/config/hypr/default_settings.json"
+        if [[ -f "$shared" ]] && { ! have jq || jq -e . "$shared" >/dev/null 2>&1; }; then
+            printf '%s' "$shared"
+            return 0
+        fi
     fi
-    if [[ ! -f "$HYPR/settings.json" ]]; then
-        run cp "$def" "$HYPR/settings.json"
-        ok "settings.json seeded from share/default_settings.json"
+    printf '%s' "$ROOT_DIR/share/default_settings.json"
+}
+
+# Same contract as `dots`: settings.json is ALWAYS default_settings.json + the
+# user's values. Seed when absent, refresh the managed default, then merge:
+#  1) migrate the pre-equisdots "dock" schema to the canonical "bar"
+#  2) drop legacy keys nothing reads anymore
+#  3) (re)apply the shipped defaults as the base (user values win; user arrays
+#     such as bar.zones are kept as-is, new sections/bar.enabled/plugins land)
+#  4) expand a leading "~" in wallpaperDir (the shell resolves it verbatim)
+# User choices are never overwritten.
+deploy_settings() {
+    local def user="$HYPR/settings.json" tmp
+    def="$(settings_default_file)"
+    [[ -f "$def" ]] || { warn "settings: no default_settings.json found"; return 0; }
+
+    run mkdir -p "$HYPR"
+    if [[ ! -f "$HYPR/default_settings.json" ]] \
+       || ! cmp -s "$def" "$HYPR/default_settings.json"; then
+        run cp -f "$def" "$HYPR/default_settings.json"
+        ok "default_settings.json refreshed from $def"
+    fi
+
+    if [[ ! -f "$user" ]]; then
+        run cp -f "$def" "$user"
+        ok "settings.json seeded from $def"
+        return 0
+    fi
+
+    if ! have jq; then
+        warn "settings: jq missing; $user left untouched"
+        return 0
+    fi
+    if (( DRY_RUN )); then
+        note "[dry-run] would merge defaults into $user (dock->bar, legacy keys, ~ expansion)"
+        return 0
+    fi
+
+    tmp="$(mktemp)"
+    if jq --slurpfile def "$def" --arg home "$HOME" '
+        (if (has("dock") and (has("bar") | not)) then .bar = .dock else . end)
+        | del(.dock, .serpbar, .openGuideAtStartup, .topbarHelpIcon, .monitors)
+        | $def[0] * .
+        | (if ((.wallpaperDir // "") | startswith("~"))
+           then .wallpaperDir = ($home + (.wallpaperDir | ltrimstr("~"))) else . end)
+    ' "$user" > "$tmp" 2>/dev/null; then
+        mv "$tmp" "$user"
+        ok "settings.json = defaults + user overrides"
+    else
+        rm -f "$tmp"
+        warn "settings.json could not be merged (invalid JSON?); left untouched"
     fi
 }
 
@@ -527,16 +691,46 @@ apply_all_overlays() {
 
 # ── Reverse operations ──────────────────────────────────────────────────────
 
+# Units shipped by the niri repo (fallback when the clone is unavailable).
+NIRI_UNITS=(focus-daemon.service quickshell.service swayidle.service xwww.service)
+
+# Remove the user-level integration that is not part of the compositor config:
+# the niri systemd units and the portal override.
+undeploy_niri_integration() {
+    local path unit dest="$XDG_CONFIG_HOME/systemd/user" units=()
+    if (( DRY_RUN )); then
+        note "[dry-run] would remove the niri user units and portal override"
+        return 0
+    fi
+    path="$(repo_path niri)"
+    if [[ -d "$path/.git" ]]; then
+        while IFS= read -r unit; do
+            [[ -n "$unit" ]] && units+=("$(basename "$unit")")
+        done < <(git -C "$path" ls-files 'systemd/*.service' 2>/dev/null)
+    fi
+    (( ${#units[@]} )) || units=("${NIRI_UNITS[@]}")
+    for unit in "${units[@]}"; do
+        rm -f "$dest/$unit"
+    done
+    rm -f "$XDG_CONFIG_HOME/xdg-desktop-portal/niri-portals.conf"
+    if have systemctl; then
+        systemctl --user daemon-reload 2>/dev/null || true
+    fi
+    ok "niri user units and portal override removed"
+}
+
 # Remove the files the niri repo deploys, using the clone's tracked file list so
 # only managed files are touched (generated/ and user files stay).
 undeploy_niri() {
     local path; path="$(repo_path niri)"
     if [[ ! -d "$path/.git" ]]; then
-        note "niri: clone absent; nothing to undeploy"
+        note "niri: clone absent; cleaning the user integration only"
+        undeploy_niri_integration
         return 0
     fi
     if (( DRY_RUN )); then
         note "[dry-run] would remove the deployed niri config files"
+        undeploy_niri_integration
         return 0
     fi
     local f rel
@@ -546,6 +740,7 @@ undeploy_niri() {
             scripts/*)     rel="${f#scripts/}"; rm -f "$NIRI_CFG/scripts/$rel" ;;
         esac
     done < <(git -C "$path" ls-files 'config/niri' 'scripts' 2>/dev/null)
+    undeploy_niri_integration
     ok "niri: deployed config files removed"
 }
 
@@ -579,9 +774,10 @@ cmd_reset() {
 }
 
 cmd_uninstall() {
-    confirm "Reverse the niri deploy (overlay, session file, wrappers)? Clones and config are kept." \
+    confirm "Reverse the niri deploy (overlay, user units, portal, session file, wrappers)? Clones and config are kept." \
         || { warn "aborted"; return 0; }
     overlay_remove_all
+    undeploy_niri_integration
     remove_session_file
     remove_marker_wrapper dotsniri
     local w

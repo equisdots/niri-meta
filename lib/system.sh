@@ -51,12 +51,73 @@ system_templates() {
     find "$ROOT_DIR/system" -maxdepth 1 -name 'install-*.sh' 2>/dev/null | sort
 }
 
+# ── Integration steps (system phase) ───────────────────────────────────────
+
+pam_quickshell_configured() {
+    [[ -f /etc/pam.d/quickshell ]] && grep -q 'system-auth' /etc/pam.d/quickshell 2>/dev/null
+}
+
+# /etc/pam.d/quickshell is required by the Quickshell lock screen. Without it
+# PAM falls back to pam_deny and no password is accepted. The file ships in the
+# shared hyprland clone (read-only); copy it with sudo, backing up any existing
+# service file first.
+system_install_pam() {
+    local src
+    src="$(repo_path hyprland)/config/pam.d/quickshell"
+    if pam_quickshell_configured; then
+        ok "PAM service 'quickshell' already configured"
+        return 0
+    fi
+    if [[ ! -f "$src" ]]; then
+        warn "PAM: $src not found (run 'dotsniri install' to clone shared hyprland); skipping"
+        return 0
+    fi
+    if (( DRY_RUN )); then
+        msg "[dry-run] would install $src -> /etc/pam.d/quickshell (sudo)"
+        return 0
+    fi
+    if [[ -f /etc/pam.d/quickshell ]]; then
+        as_root cp -f /etc/pam.d/quickshell /etc/pam.d/quickshell.backup
+        note "PAM: existing service backed up to /etc/pam.d/quickshell.backup"
+    fi
+    as_root install -Dm644 "$src" /etc/pam.d/quickshell
+    ok "PAM service 'quickshell' installed"
+}
+
+# Optional SDDM theme. login/install.sh may switch display-manager.service to
+# SDDM, so it only runs with the explicit --login opt-in; it is never part of a
+# default system/install/setup run.
+system_install_login_theme() {
+    local repo
+    repo="$(repo_path login)"
+    if [[ ! -f "$repo/install.sh" ]]; then
+        warn "login: $repo/install.sh not found (run 'dotsniri install'); skipping the SDDM theme"
+        return 0
+    fi
+    if (( DRY_RUN )); then
+        msg "[dry-run] would run $repo/install.sh (SDDM theme; may select SDDM as display manager)"
+        return 0
+    fi
+    warn "login: running login/install.sh — it may select SDDM as display-manager.service"
+    if bash "$repo/install.sh"; then
+        ok "SDDM theme installed"
+    else
+        warn "login: SDDM theme installation failed"
+    fi
+}
+
 cmd_system() {
-    local apply=0 args=() arg
+    local apply=0 pam=auto xwww=auto login=0 args=() arg
     for arg in "$@"; do
         case "$arg" in
-            --apply) apply=1 ;;
-            *)       args+=("$arg") ;;
+            --apply)    apply=1 ;;
+            --pam)      pam=yes ;;
+            --no-pam)   pam=no ;;
+            --xwww)     xwww=yes ;;
+            --no-xwww)  xwww=no ;;
+            --login)    login=1 ;;
+            --no-login) login=0 ;;
+            *)          args+=("$arg") ;;
         esac
     done
 
@@ -74,23 +135,110 @@ cmd_system() {
         done < <(system_templates)
         warn "no matching system/install-<distro>.sh template for this distro"
         note "copy or adapt one as system/install-<distro>.sh and re-run 'dotsniri system --apply'"
-        return 0
+        if [[ "$apply" -eq 0 ]]; then
+            return 0
+        fi
+        note "continuing with the integration steps only (xwww, PAM, login)"
     fi
 
-    note "template: $tpl"
+    if [[ -n "$tpl" ]]; then
+        note "template: $tpl"
+    fi
+
     if [[ "$apply" -eq 1 ]] || (( ASSUME_YES )); then
-        confirm "Run $tpl? It may use sudo." || { warn "aborted"; return 0; }
-        if (( DRY_RUN )); then
-            msg "[dry-run] bash $tpl ${args[*]-}"
+        if [[ -n "$tpl" ]]; then
+            if (( DRY_RUN )); then
+                msg "[dry-run] bash $tpl ${args[*]-}"
+            else
+                confirm "Run $tpl? It may use sudo." || { warn "aborted"; return 0; }
+                local targs=("${args[@]}")
+                (( ASSUME_YES )) && targs+=(--yes)
+                bash "$tpl" "${targs[@]}"
+            fi
+        fi
+
+        # The shared hyprland clone supplies the PAM file; clone it if the
+        # system step installed git but the payload has not run yet.
+        if have git && [[ ! -d "$(repo_path hyprland)" ]]; then
+            ensure_repo hyprland || warn "hyprland: clone failed; PAM setup may be skipped"
+        fi
+
+        if [[ "$xwww" != no ]]; then
+            cmd_xwww || warn "xwww: installation failed; the wallpaper daemon will be missing"
         else
-            bash "$tpl" "${args[@]}"
+            note "xwww: skipped (--no-xwww)"
+        fi
+
+        if [[ "$pam" == no ]]; then
+            note "PAM: skipped (--no-pam)"
+        elif pam_quickshell_configured; then
+            system_install_pam
+        elif [[ "$pam" == yes ]] || (( DRY_RUN )) \
+             || confirm "Install /etc/pam.d/quickshell for the lock screen? [y/N]"; then
+            system_install_pam
+        else
+            note "PAM: skipped; the lock screen will not accept passwords"
+        fi
+
+        if [[ "$login" -eq 1 ]]; then
+            system_install_login_theme
+        else
+            note "SDDM theme: opt in with 'dotsniri system --apply --login' (never changed silently)"
         fi
     else
         note "plan only: re-run with --apply to execute the template"
-        if (( DRY_RUN )); then
-            note "[dry-run] would run: bash $tpl"
-        else
-            bash "$tpl" --dry-run || true
+        note "integration plan: xwww (pinned ${XWWW_PINNED_VERSION:-v0.13.1}), PAM (prompt), SDDM theme (only with --login)"
+        if [[ -n "$tpl" ]]; then
+            if (( DRY_RUN )); then
+                note "[dry-run] would run: bash $tpl"
+            else
+                bash "$tpl" --dry-run || true
+            fi
         fi
     fi
+}
+
+# ── Bootstrap preflight ─────────────────────────────────────────────────────
+# Mirrors `dots setup`: before install/deploy, make sure git, rsync and jq are
+# present. If a distro template exists, run the system phase first (it installs
+# them) and retry once. The remote one-liner still needs git (or curl/wget+tar)
+# to get this meta onto disk first; see the bootstrap block in bin/dotsniri.
+preflight_runtime() {
+    local missing=() still=() c tpl
+    for c in git rsync jq; do
+        have "$c" || missing+=("$c")
+    done
+    (( ${#missing[@]} == 0 )) && return 0
+
+    warn "missing required runtime tool(s): ${missing[*]}"
+    if [[ "${PREFLIGHT_SYSTEM_RUNNING:-0}" -eq 1 ]]; then
+        die "cannot bootstrap the missing tools automatically; install ${missing[*]} and re-run"
+    fi
+
+    tpl="$(system_template_for_distro || true)"
+    if [[ -z "$tpl" ]]; then
+        if (( DRY_RUN )); then
+            note "[dry-run] would need to install ${missing[*]} first (no template for this distro)"
+            return 0
+        fi
+        die "install ${missing[*]} with your package manager and re-run"
+    fi
+
+    if (( DRY_RUN )); then
+        note "[dry-run] would run the system phase first to install: ${missing[*]}"
+        return 0
+    fi
+
+    msg "running the system phase first to install: ${missing[*]}"
+    PREFLIGHT_SYSTEM_RUNNING=1
+    cmd_system --apply --no-login || warn "system phase reported errors; retrying the tool check"
+    unset PREFLIGHT_SYSTEM_RUNNING
+
+    for c in git rsync jq; do
+        have "$c" || still+=("$c")
+    done
+    if (( ${#still[@]} )); then
+        die "still missing after the system phase: ${still[*]} (install manually and re-run)"
+    fi
+    ok "runtime tools ready"
 }
