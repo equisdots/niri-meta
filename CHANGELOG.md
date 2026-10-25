@@ -31,9 +31,10 @@ All notable changes to `niri-meta` are documented here. The format follows
   AMD/Intel systems are a no-op. `pciutils` is in the package lists;
   `envycontrol` moved from the optional AUR group to the NVIDIA step.
 - `install` now runs the niri repo's standalone app config installer,
-  including xtop (built from `xtop-cli/xtop` with cargo), the interactive
-  wallpaper scenes and Hack Nerd Font system-wide for SDDM. `DOTSNIRI_NO_APPS`
-  / `DOTSNIRI_NO_XTOP` / `DOTSNIRI_NO_SCENES` / `DOTSNIRI_NO_SYSTEM_FONT` skip
+  including xtop (built from `xtop-cli/xtop` with cargo), xfetch (latest
+  release, checksum-verified), the interactive wallpaper scenes and Hack Nerd
+  Font system-wide for SDDM. `DOTSNIRI_NO_APPS` / `DOTSNIRI_NO_XTOP` /
+  `DOTSNIRI_NO_XFETCH` / `DOTSNIRI_NO_SCENES` / `DOTSNIRI_NO_SYSTEM_FONT` skip
   steps. `deploy`/`update` stay offline.
 - Own repo `plugins-niri`: niri-specific plugin implementations. The first is
   `plugins/screenshots`, which keeps the standard plugin UI/bar contract but

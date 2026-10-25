@@ -129,7 +129,7 @@ never wipe an applied overlay:
 | `plugins-niri` `plugins/<id>` | `$QS/ui/plugins/<id>` + `~/.config/hypr/plugins/<id>` | niri plugin overrides; re-deployed after the overlays |
 | `background` `scenes/` | `~/.config/hypr/wallpapers/` | interactive wallpaper scenes for davincix; refreshed on every deploy |
 | `niri` `config/apps/rofi/` + `cava/` | `~/.config/rofi/` + `~/.config/cava/` | copied when missing/changed; an existing dir is backed up under `~/.local/state/equisdots-niri/backups/{rofi,cava}-*` |
-| `install` app configs | `~/.local/bin/xtop`, `~/.config/xtop`, `~/.local/share/fonts` | xtop from source, Hack Nerd Font (system-wide for SDDM) and the wallpaper scenes; `DOTSNIRI_NO_*` skip flags |
+| `install` app configs | `~/.local/bin/xtop`, `~/.local/bin/xfetch`, `~/.config/xtop`, `~/.config/xfetch`, `~/.local/share/fonts` | xtop from source and xfetch from its latest release, Hack Nerd Font (system-wide for SDDM) and the wallpaper scenes; `DOTSNIRI_NO_*` skip flags |
 | `hyprland` `config/pam.d/quickshell` | `/etc/pam.d/quickshell` | system phase only, sudo, prompt/`--pam`, backs up an existing service |
 | `shell` (base) | `~/.config/hypr/scripts/quickshell/` | Quickshell UI; `dock/`, `ui/plugins/`, `core/sdk/`, the plugin contract files and `docs/` excluded |
 | `plugin-api` | `.../quickshell/plugin-api.json` + `core/scripts/plugins_compat.sh` | normative contract + compat evaluator |
