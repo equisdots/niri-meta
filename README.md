@@ -54,7 +54,7 @@ install instruction.
 | Command | What it does |
 | --- | --- |
 | `setup` | `install`, default to niri on a fresh install, then run the system package phase when niri is missing (or with `--system`) |
-| `install` | clone/update the own repos plus the shared bases (`hyprland` scripts, shell, plugins), default the desktop to niri, deploy, install the user app configs (kitty/starship/nvim/Hack Nerd Font), bootstrap packages when niri is missing, and ensure the login entry |
+| `install` | clone/update the own repos plus the shared bases (`hyprland` scripts, shell, plugins), default the desktop to niri, deploy, install the user app configs (kitty/starship/nvim/xtop/scenes/Hack Nerd Font), bootstrap packages when niri is missing, and ensure the login entry |
 | `deploy` | deploy from the existing clones (no clone or update), in phases |
 | `update` | pull the own repos plus the shared bases, then re-deploy |
 | `list` | managed repos with their kind (`own` / `shared`) and state |
@@ -64,7 +64,7 @@ install instruction.
 | `uninstall` | reverse the deploy (overlays, units, portal, login entry, wrappers); clones and config kept |
 | `desktop <niri\|hyprland\|both>` | default session, `settings.json` mirror, all overlays in sync, login entry |
 | `login <install\|remove\|status>` | manage the DM session entry system-wide (via `niri-login`, sudo) |
-| `system [--apply] [--pam\|--no-pam] [--xwww\|--no-xwww] [--login]` | install distro packages and run the integration steps; `--login` is the explicit SDDM-theme opt-in |
+| `system [--apply] [--pam\|--no-pam] [--xwww\|--no-xwww] [--font\|--no-font] [--login]` | install distro packages and run the integration steps; `--login` is the explicit SDDM-theme opt-in |
 | `xwww [--force]` | install/align the pinned `xwww-daemon` release (sudo) |
 | `plugins [list\|available\|add\|remove\|enable\|disable]` | manage the plugin set by the standard convention (parity with `dots plugins`) |
 | `version` | print the `dotsniri` version |
@@ -89,6 +89,7 @@ shared clone never edits it.
 | own | [niri-shell](https://github.com/equisdots/niri-shell) | shell overlay (Niri backend, niri scripts) merged into the shared shell |
 | own | [nyx-niri](https://github.com/equisdots/nyx-niri) | nyx mascot island overlay (compositor-neutral) merged into the shared shell |
 | own | [niri-login](https://github.com/equisdots/niri-login) | Wayland session entry installer (so DMs list "Niri") |
+| own | [plugins-niri](https://github.com/equisdots/plugins-niri) | niri-specific plugin implementations (screenshots/recording); preferred over the shared hub |
 | own | niri-meta | this meta installer |
 | shared | [hyprland](https://github.com/equisdots/hyprland) | shared helper scripts still called by the niri keybinds/autostart and the PAM file (read-only; its compositor config is never deployed) |
 | shared | [shell](https://github.com/equisdots/shell) | Quickshell desktop UI (pulled and deployed as the base for the niri-shell overlay) |
@@ -125,7 +126,10 @@ never wipe an applied overlay:
 | `niri` `systemd/*.service` | `~/.config/systemd/user/` | copied, **not enabled** (autostart owns the daemons); `daemon-reload` is best effort |
 | `niri` `portals/niri-portals.conf` | `~/.config/xdg-desktop-portal/niri-portals.conf` | per-user portal backend selection, no sudo |
 | `hyprland` `scripts/*.sh` | `~/.config/hypr/scripts/` | shared helpers (`qs_manager`, `lock`, `volume`, `brightness`, `reload`, `init`, listeners); no `--delete` |
+| `plugins-niri` `plugins/<id>` | `$QS/ui/plugins/<id>` + `~/.config/hypr/plugins/<id>` | niri plugin overrides; re-deployed after the overlays |
+| `background` `scenes/` | `~/.config/hypr/wallpapers/` | interactive wallpaper scenes for davincix; refreshed on every deploy |
 | `niri` `config/apps/rofi/` + `cava/` | `~/.config/rofi/` + `~/.config/cava/` | copied when missing/changed; an existing dir is backed up under `~/.local/state/equisdots-niri/backups/{rofi,cava}-*` |
+| `install` app configs | `~/.local/bin/xtop`, `~/.config/xtop`, `~/.local/share/fonts` | xtop from source, Hack Nerd Font (system-wide for SDDM) and the wallpaper scenes; `DOTSNIRI_NO_*` skip flags |
 | `hyprland` `config/pam.d/quickshell` | `/etc/pam.d/quickshell` | system phase only, sudo, prompt/`--pam`, backs up an existing service |
 | `shell` (base) | `~/.config/hypr/scripts/quickshell/` | Quickshell UI; `dock/`, `ui/plugins/`, `core/sdk/`, the plugin contract files and `docs/` excluded |
 | `plugin-api` | `.../quickshell/plugin-api.json` + `core/scripts/plugins_compat.sh` | normative contract + compat evaluator |

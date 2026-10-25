@@ -75,6 +75,7 @@ PKGS=(
     starship
     zsh
     socat
+    rust
 
     pipewire
     pipewire-pulse

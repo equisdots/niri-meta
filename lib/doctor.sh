@@ -112,6 +112,18 @@ check_shared_scripts() {
         warn "rofi themes missing in $CFG/rofi (run: dotsniri deploy)"
         DOCTOR_FAIL=1
     fi
+    if [[ -f "$CFG/cava/config_base" ]]; then
+        ok "cava config deployed"
+    else
+        warn "cava config missing in $CFG/cava (run: dotsniri deploy)"
+        DOCTOR_FAIL=1
+    fi
+    if [[ -n "$(find "$HYPR/wallpapers" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]]; then
+        ok "wallpapers/scenes present in $HYPR/wallpapers"
+    else
+        warn "wallpaper directory is empty: $HYPR/wallpapers (run: dotsniri deploy)"
+        DOCTOR_FAIL=1
+    fi
 }
 
 check_niri_integration() {
@@ -130,6 +142,13 @@ check_niri_integration() {
         ok "niri portal override deployed"
     else
         warn "niri portal override missing (run: dotsniri deploy)"
+        DOCTOR_FAIL=1
+    fi
+
+    if [[ -f /usr/share/fonts/HackNerdFont-Regular.ttf ]]; then
+        ok "Hack Nerd Font installed system-wide (SDDM)"
+    else
+        warn "Hack Nerd Font missing from /usr/share/fonts (SDDM may show boxes; run: dotsniri system --apply)"
         DOCTOR_FAIL=1
     fi
 
@@ -338,7 +357,7 @@ cmd_doctor() {
 
     msg "binaries (optional)"
     local c
-    for c in grim slurp satty fd fdfind cliphist zbarimg gpu-screen-recorder cargo mpvpaper; do
+    for c in grim slurp satty fd fdfind cliphist zbarimg gpu-screen-recorder cargo mpvpaper xtop; do
         chk_optional "$c"
     done
 
