@@ -212,6 +212,17 @@ WRAP
     ok "dotsniri -> $BIN/dotsniri"
 }
 
+# Resolve the wallpaper directory from settings.json (the shell reads it
+# verbatim), expanding a leading "~". Defaults to the shared data root.
+niri_wallpaper_dir() {
+    local dir=""
+    if have jq && [[ -f "$HYPR/settings.json" ]]; then
+        dir="$(jq -r '.wallpaperDir // empty' "$HYPR/settings.json" 2>/dev/null || true)"
+    fi
+    dir="${dir:-$HYPR/wallpapers}"
+    printf '%s' "${dir/#\~/$HOME}"
+}
+
 # Seed generated/env.kdl with literal paths (niri cannot expand $HOME, and
 # environment {} is a single-occurrence section). The template ships in the
 # niri clone; existing generated files are never overwritten.
@@ -238,7 +249,8 @@ deploy_generated_env() {
         session_path="$session_path:$p"
     done
 
-    local wallpaper_dir="$HYPR/wallpapers"
+    local wallpaper_dir
+    wallpaper_dir="$(niri_wallpaper_dir)"
     local scripts_dir="$HYPR/scripts"
     local pictures_dir="${XDG_PICTURES_DIR:-$HOME/Pictures}"
     local videos_dir="${XDG_VIDEOS_DIR:-$HOME/Videos}"
@@ -340,7 +352,7 @@ deploy_niri_scenes() {
     local path="$1" bg scenes dest count=0 d name
     bg="$(repo_path background 2>/dev/null || true)"
     scenes="$bg/scenes"
-    dest="$HYPR/wallpapers"
+    dest="$(niri_wallpaper_dir)"
     [[ -d "$scenes" ]] || { note "background scenes not found; skipping"; return 0; }
     msg "niri: wallpaper scenes -> $dest"
     run mkdir -p "$dest"
