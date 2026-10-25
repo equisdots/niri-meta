@@ -522,8 +522,9 @@ deploy_cava() {
     ok "cava config deployed"
 }
 
-# User app configs (kitty, starship, nvim, Hack Nerd Font). Run on `install`,
-# not on `deploy`/`update`, and never under --dry-run. DOTSNIRI_NO_APPS=1 skips.
+# User app configs (kitty, starship, nvim, xtop, xfetch, Hack Nerd Font). Run
+# on `install`, not on `deploy`/`update`, and never under --dry-run.
+# DOTSNIRI_NO_APPS=1 skips.
 install_niri_app_configs() {
     [[ "${DOTSNIRI_NO_APPS:-0}" == "1" ]] && { note "app configs: skipped (DOTSNIRI_NO_APPS=1)"; return 0; }
     local script; script="$(repo_path niri)/scripts/install-app-configs.sh"
@@ -534,7 +535,7 @@ install_niri_app_configs() {
     fi
     local args=()
     (( ASSUME_YES )) && args+=("-y")
-    msg "app configs: kitty, starship, nvim, xtop, scenes, Hack Nerd Font"
+    msg "app configs: kitty, starship, nvim, xtop, xfetch, scenes, Hack Nerd Font"
     bash "$script" "${args[@]}" || warn "app configs finished with warnings"
 }
 

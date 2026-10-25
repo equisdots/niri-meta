@@ -390,7 +390,7 @@ cmd_doctor() {
 
     msg "binaries (optional)"
     local c
-    for c in grim slurp satty fd fdfind cliphist zbarimg gpu-screen-recorder cargo mpvpaper xtop; do
+    for c in grim slurp satty fd fdfind cliphist zbarimg gpu-screen-recorder cargo mpvpaper xtop xfetch; do
         chk_optional "$c"
     done
 
