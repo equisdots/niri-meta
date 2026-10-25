@@ -39,8 +39,44 @@ DEFAULT_PLUGINS=(screenshots timex rss-reader clipboard quicknotes file-search s
 
 # ── Commands ────────────────────────────────────────────────────────────────
 
+# Refuse to start a deploy when a required payload is missing, incomplete or
+# dirty. This is the offline-safety boundary: an update with no network must
+# never rsync --delete an incomplete clone over a working installation.
+preflight_deploy() {
+    local name path missing=() dirty=()
+    local required=(hyprland shell plugin-api plugin-sdk plugins plugins-niri
+                    niri niri-shell nyx-niri nyx timex)
+    for name in "${required[@]}"; do
+        path="$(repo_path "$name" 2>/dev/null || true)"
+        if [[ -z "$path" || ! -d "$path" ]]; then
+            missing+=("$name")
+            continue
+        fi
+        if [[ -d "$path/.git" ]]; then
+            git -C "$path" rev-parse --verify HEAD >/dev/null 2>&1                 || missing+=("$name(no HEAD)")
+            [[ -n "$(git -C "$path" status --porcelain 2>/dev/null)" ]]                 && dirty+=("$name")
+        fi
+    done
+    [[ -f "$(repo_path shell 2>/dev/null)/Shell.qml" ]] || missing+=("shell/Shell.qml")
+    [[ -d "$(repo_path shell 2>/dev/null)/core" ]] || missing+=("shell/core")
+    [[ -f "$(repo_path niri 2>/dev/null)/config/niri/config.kdl" ]] || missing+=("niri/config/niri/config.kdl")
+    [[ -f "$(repo_path niri-shell 2>/dev/null)/core/Compositor.qml" ]] || missing+=("niri-shell/core/Compositor.qml")
+    [[ -f "$(repo_path plugins-niri 2>/dev/null)/plugins/screenshots/plugin.json" ]] || missing+=("plugins-niri/screenshots")
+    [[ -f "$(repo_path plugin-api 2>/dev/null)/plugin-api.json" ]] || missing+=("plugin-api")
+    [[ -d "$(repo_path plugin-sdk 2>/dev/null)/qml" ]] || missing+=("plugin-sdk/qml")
+    [[ -f "$(repo_path plugins 2>/dev/null)/registry.json" ]] || missing+=("plugins/registry.json")
+
+    if (( ${#missing[@]} )); then
+        die "deploy aborted: missing/incomplete required payload: ${missing[*]}. The current installation was left untouched."
+    fi
+    if (( ${#dirty[@]} )); then
+        die "deploy aborted: local changes in managed clones: ${dirty[*]}. Commit/discard them or use 'dotsniri reset'. The current installation was left untouched."
+    fi
+}
+
 cmd_deploy() {
     preflight_runtime
+    preflight_deploy
     local name
 
     # Phase 1: shared base payloads. The shell, the plugin contract/SDK, the
@@ -361,11 +397,14 @@ deploy_niri_portal() {
 }
 
 deploy_niri_shell() {
+    [[ -f "$1/core/Compositor.qml" ]] || { warn "niri-shell: incomplete clone; skipping"; return 1; }
     deploy_overlay_repo niri-shell "$1"
 }
 
 # nyx-niri ships its payload under overlay/ (ui/plugins/nyx/...).
 deploy_nyx_niri() {
+    [[ -f "$1/overlay/ui/plugins/nyx/front/MascotsOverlay.qml" ]] || {
+        warn "nyx-niri: incomplete clone; skipping"; return 1; }
     deploy_overlay_repo nyx-niri "$1"
 }
 
@@ -509,10 +548,24 @@ deploy_palettes() {
 # owned by the palette deploy. The legacy ui/nyx location is purged: nyx is a
 # plugin now and lives in ui/plugins/nyx.
 deploy_shell() {
-    local path="$1"
-    if [[ ! -d "$path" ]]; then
-        warn "shell: clone missing; run 'dotsniri install'"
-        return 0
+    local path="$1" backup
+    if [[ ! -f "$path/Shell.qml" || ! -d "$path/core" || ! -d "$path/ui" ]]; then
+        warn "shell: clone is incomplete ($path); refusing to touch $QS"
+        return 1
+    fi
+    # The shell deploy is the only --delete step over the live tree. Snapshot
+    # it first (keep the last 3), so an interrupted/offline update is
+    # recoverable even in the worst case.
+    if [[ -d "$QS" && -n "$(find "$QS" -mindepth 1 -print -quit 2>/dev/null)" ]]; then
+        backup="$STATE/backups/shell-$(date +%Y%m%d_%H%M%S).tar.gz"
+        msg "shell: snapshot -> $backup"
+        run mkdir -p "$STATE/backups"
+        if (( ! DRY_RUN )); then
+            tar -czf "$backup" -C "$QS" . 2>/dev/null || warn "shell snapshot failed (continuing)"
+        fi
+        ls -1dt "$STATE"/backups/shell-*.tar.gz 2>/dev/null | tail -n +4 | while IFS= read -r old; do
+            run rm -f "$old"
+        done
     fi
     msg "shell: quickshell -> $QS"
     run mkdir -p "$QS"
@@ -770,6 +823,10 @@ overlay_apply() {
     if [[ ! -d "$src" ]]; then
         warn "overlay '$name': source not found: $src"
         return 0
+    fi
+    if [[ -z "$(find -L "$src" -type f -not -path '*/docs/*' -print -quit 2>/dev/null)" ]]; then
+        warn "overlay '$name': source is empty ($src); refusing to remove the current overlay"
+        return 1
     fi
     msg "$name: applying overlay -> $QS"
 

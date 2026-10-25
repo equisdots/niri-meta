@@ -174,11 +174,14 @@ ensure_repo() {
 
 cmd_install() {
     preflight_runtime
-    local name n=0
+    local name n=0 failed=()
     while IFS= read -r name; do
-        ensure_repo "$name" || true
+        ensure_repo "$name" || failed+=("$name")
         [[ -d "$(repo_path "$name")" ]] && n=$((n + 1))
     done < <(repos_all)
+    if (( ${#failed[@]} )); then
+        die "install aborted: could not obtain required repo(s): ${failed[*]}. No existing installation was modified."
+    fi
 
     # Fresh niri-stack install: default to the niri session before deploying so
     # the compositor overlays are applied. Without this the shell keeps the
@@ -211,10 +214,13 @@ cmd_install() {
 
 cmd_update() {
     preflight_runtime
-    local name
+    local name failed=()
     while IFS= read -r name; do
-        ensure_repo "$name"
+        ensure_repo "$name" || failed+=("$name")
     done < <(repos_all)
+    if (( ${#failed[@]} )); then
+        die "update aborted: could not obtain required repo(s): ${failed[*]}. The current installation was left untouched."
+    fi
     cmd_deploy
 }
 
