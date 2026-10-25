@@ -32,6 +32,10 @@ All notable changes to `niri-meta` are documented here. The format follows
 
 ### Fixed
 
+- `deploy`/`generated/env.kdl`: the wallpaper directory is resolved from
+  `settings.json.wallpaperDir` (with `~` expansion) instead of assuming
+  `~/.config/hypr/wallpapers`, so scenes and davincix use the same directory
+  the picker reads.
 - `reset` is now offline-safe: it checks GitHub reachability before deleting
   anything, snapshots the deployed shell/config/settings under
   `~/.local/state/equisdots-niri/backups/reset-*`, and restores that snapshot
