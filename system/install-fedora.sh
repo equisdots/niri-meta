@@ -46,6 +46,7 @@ PKGS=(
     python3
     libnotify
     ImageMagick
+    librsvg2
     ffmpeg-free
 
     grim
@@ -65,6 +66,7 @@ PKGS=(
     qt6ct
     qt5-qtwayland
     qt6-qtwayland
+    qt6-qtmultimedia
 
     google-noto-sans-fonts
     google-noto-emoji-fonts
@@ -76,9 +78,15 @@ PKGS=(
     starship
     zsh
     socat
+    inotify-tools
+    lm_sensors
+    iw
+    xdg-utils
+    xdg-user-dirs
     cargo
 
     pipewire
+    pipewire-alsa
     pipewire-pulseaudio
     wireplumber
     NetworkManager
@@ -91,6 +99,8 @@ OPTIONAL_PKGS=(
     envycontrol
     gpu-screen-recorder
     satty
+    mpvpaper
+    rofi-emoji
     bibata-cursor-theme
 )
 

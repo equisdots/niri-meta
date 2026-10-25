@@ -34,6 +34,7 @@ PKGS=(
     ddcutil
     kitty
     rofi
+    rofi-emoji
     jq
     git
     rsync
@@ -44,12 +45,15 @@ PKGS=(
     python
     libnotify
     imagemagick
+    librsvg
     ffmpeg
 
     grim
     slurp
     satty
     zbar
+    mpvpaper
+    gpu-screen-recorder
 
     nautilus
     gvfs
@@ -64,6 +68,7 @@ PKGS=(
     qt6ct
     qt5-wayland
     qt6-wayland
+    qt6-multimedia
 
     noto-fonts
     noto-fonts-emoji
@@ -75,9 +80,16 @@ PKGS=(
     starship
     zsh
     socat
+    inotify-tools
+    lm_sensors
+    iw
+    xdg-utils
+    xdg-user-dirs
     rust
+    base-devel
 
     pipewire
+    pipewire-alsa
     pipewire-pulse
     wireplumber
     networkmanager
@@ -86,11 +98,10 @@ PKGS=(
     polkit
 )
 
-# AUR-only / optional packages. Installed through paru/yay when present and
-# never fatal: a missing helper or package only warns.
+# AUR-only / optional packages. Installed through paru/yay (bootstrapped below
+# when missing) and never fatal: a missing package only warns.
 OPTIONAL_PKGS=(
     envycontrol
-    gpu-screen-recorder
     bibata-cursor-theme
 )
 
@@ -117,6 +128,7 @@ done
 
 if (( DRY_RUN )); then
     printf 'sudo pacman -S --needed %s\n' "${PKGS[*]}"
+    printf 'AUR helper: use paru/yay, or build yay from the AUR when neither is present\n'
     printf 'optional (AUR helper): %s\n' "${OPTIONAL_PKGS[*]}"
     exit 0
 fi
@@ -127,23 +139,54 @@ if (( ! ASSUME_YES )); then
     [[ "$reply" =~ ^[Yy]$ ]] || { printf 'aborted\n'; exit 1; }
 fi
 
+# AUR helper parity with equisdots/hyprland: prefer paru, then yay, and build
+# yay from the AUR when neither exists. yay must run as the desktop user, so a
+# root invocation only warns and falls back to the official repositories.
+AUR_HELPER=""
+ensure_aur_helper() {
+    if [[ "$(id -u)" == "0" ]]; then
+        printf 'AUR helpers cannot run as root; AUR-only packages will be skipped\n' >&2
+        return 1
+    fi
+    if command -v paru >/dev/null 2>&1; then
+        AUR_HELPER=paru
+        printf 'AUR helper: paru\n'
+        return 0
+    fi
+    if command -v yay >/dev/null 2>&1; then
+        AUR_HELPER=yay
+        printf 'AUR helper: yay\n'
+        return 0
+    fi
+
+    if ! command -v git >/dev/null 2>&1 || ! command -v makepkg >/dev/null 2>&1; then
+        printf 'Installing yay build tools (git, base-devel)...\n'
+        sudo pacman -S --needed --noconfirm git base-devel || return 1
+    fi
+
+    local tmp
+    tmp="$(mktemp -d)" || return 1
+    printf 'No AUR helper found; building yay from the AUR...\n'
+    if ! git clone --depth 1 https://aur.archlinux.org/yay.git "$tmp/yay" >/dev/null 2>&1; then
+        rm -rf "$tmp"
+        return 1
+    fi
+    if ( cd "$tmp/yay" && makepkg -si --noconfirm ); then
+        AUR_HELPER=yay
+    fi
+    rm -rf "$tmp"
+    [[ -n "$AUR_HELPER" ]]
+}
+
 pacman_args=(--needed)
 (( ASSUME_YES )) && pacman_args+=(--noconfirm)
 sudo pacman -S "${pacman_args[@]}" "${PKGS[@]}"
 
-# Optional packages are never fatal: try the official repos first, then an AUR
-# helper (paru/yay) when one is available.
-if ! sudo pacman -S "${pacman_args[@]}" "${OPTIONAL_PKGS[@]}" 2>/dev/null; then
-    aur_helper=""
-    if command -v paru >/dev/null 2>&1; then
-        aur_helper=paru
-    elif command -v yay >/dev/null 2>&1; then
-        aur_helper=yay
-    fi
-    if [[ -n "$aur_helper" ]]; then
-        "$aur_helper" -S --needed --noconfirm "${OPTIONAL_PKGS[@]}" \
-            || printf 'optional packages skipped: %s\n' "${OPTIONAL_PKGS[*]}" >&2
-    else
-        printf 'optional packages skipped (not in the repos; no paru/yay): %s\n' "${OPTIONAL_PKGS[*]}" >&2
-    fi
+# Optional packages are never fatal: install them through the AUR helper when
+# available, otherwise fall back to the official repositories and warn.
+if ensure_aur_helper; then
+    "$AUR_HELPER" -S --needed --noconfirm "${OPTIONAL_PKGS[@]}" \
+        || printf 'optional packages skipped: %s\n' "${OPTIONAL_PKGS[*]}" >&2
+elif ! sudo pacman -S "${pacman_args[@]}" "${OPTIONAL_PKGS[@]}" 2>/dev/null; then
+    printf 'optional packages skipped (not in the repos; no paru/yay): %s\n' "${OPTIONAL_PKGS[*]}" >&2
 fi

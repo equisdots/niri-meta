@@ -169,11 +169,11 @@ check_niri_integration() {
 # niri autostart starts. Core tools fail doctor; applets are only reported.
 check_system_tools() {
     local c missing=() applets=()
-    for c in python3 curl notify-send pactl swayidle ddcutil; do
+    for c in python3 curl notify-send pactl swayidle ddcutil inotifywait socat; do
         have "$c" || missing+=("$c")
     done
     if (( ${#missing[@]} == 0 )); then
-        ok "shared-script runtime tools present (python3, curl, libnotify, pactl, swayidle, ddcutil)"
+        ok "shared-script runtime tools present (python3, curl, libnotify, pactl, swayidle, ddcutil, inotifywait, socat)"
     else
         warn "runtime tools missing: ${missing[*]} (run: dotsniri system --apply)"
         DOCTOR_FAIL=1
@@ -185,6 +185,27 @@ check_system_tools() {
         ok "desktop applets present (nautilus, pavucontrol, nm-applet, blueman, keyring)"
     else
         note "desktop applets missing: ${applets[*]} (optional; run: dotsniri system --apply)"
+    fi
+}
+
+# DavincixPicker.qml and DavincixCard.qml import QtMultimedia. A missing QML
+# module makes StackView.replace fail and the wallpaper picker never renders,
+# so this is a hard check, not a package-name check.
+check_qt_multimedia() {
+    local root found=0
+    for root in \
+        "$(qmake6 -query QT_INSTALL_QML 2>/dev/null || true)" \
+        /usr/lib/qt6/qml \
+        /usr/lib64/qt6/qml \
+        /usr/lib/x86_64-linux-gnu/qt6/qml \
+        /usr/lib/aarch64-linux-gnu/qt6/qml; do
+        [[ -n "$root" && -d "$root/QtMultimedia" ]] && { found=1; break; }
+    done
+    if (( found )); then
+        ok "QtMultimedia QML module present (wallpaper picker and video previews)"
+    else
+        warn "QtMultimedia QML module missing (install qt6-multimedia); the wallpaper picker cannot load"
+        DOCTOR_FAIL=1
     fi
 }
 
@@ -381,6 +402,7 @@ cmd_doctor() {
     msg "system integration"
     check_niri_integration
     check_system_tools
+    check_qt_multimedia
 
     if (( DOCTOR_FAIL == 0 )); then
         ok "doctor: all critical checks passed"
