@@ -29,6 +29,18 @@ All notable changes to `niri-meta` are documented here. The format follows
   Font and xtop.
 - `system` installs Hack Nerd Font system-wide for SDDM (`--no-font` skips).
   `rust`/`cargo` is in the Arch/Fedora package templates for the xtop build.
+- `system/install-arch.sh`: AUR-helper parity with the Hyprland installer. It
+  prefers `paru`, then `yay`, and builds `yay` from the AUR with `git` +
+  `base-devel` when neither is present, so `envycontrol`/Bibata are installed
+  instead of skipped.
+- `system` package lists: `qt6-multimedia` (Fedora `qt6-qtmultimedia`) is now
+  core because the davincix wallpaper picker and video previews import
+  `QtMultimedia`; the Arch/Fedora lists also gain `inotify-tools`, `mpvpaper`,
+  `rofi-emoji`, `lm_sensors`, `iw`, `librsvg`, `xdg-utils`, `xdg-user-dirs`
+  and `pipewire-alsa`.
+- `doctor` now requires `inotifywait` and `socat`, and checks that the
+  QtMultimedia QML module is installed (a missing module silently breaks the
+  wallpaper picker).
 
 ### Fixed
 
