@@ -84,9 +84,18 @@ system_install_pam() {
     ok "PAM service 'quickshell' installed"
 }
 
-# Optional SDDM theme. login/install.sh may switch display-manager.service to
-# SDDM, so it only runs with the explicit --login opt-in; it is never part of a
-# default system/install/setup run.
+# True when systemd's display-manager.service already points at SDDM. In that
+# case installing the theme cannot switch the user's display manager.
+sddm_active() {
+    local id link="/etc/systemd/system/display-manager.service"
+    id="$(systemctl show -p Id --value display-manager.service 2>/dev/null || true)"
+    [[ "$id" == "sddm.service" ]] && return 0
+    [[ -L "$link" ]] && [[ "$(basename "$(readlink "$link")")" == "sddm.service" ]]
+}
+
+# SDDM theme. login/install.sh may switch display-manager.service to SDDM, so
+# it only runs automatically when SDDM is already active (safe) or with the
+# explicit --login opt-in. --no-login skips it.
 system_install_login_theme() {
     local repo
     repo="$(repo_path login)"
@@ -95,10 +104,10 @@ system_install_login_theme() {
         return 0
     fi
     if (( DRY_RUN )); then
-        msg "[dry-run] would run $repo/install.sh (SDDM theme; may select SDDM as display manager)"
+        msg "[dry-run] would run $repo/install.sh (SDDM theme; selects SDDM only when --login forces it)"
         return 0
     fi
-    warn "login: running login/install.sh — it may select SDDM as display-manager.service"
+    warn "login: running login/install.sh (SDDM theme; it may replace a different display-manager.service)"
     if bash "$repo/install.sh"; then
         ok "SDDM theme installed"
     else
@@ -142,7 +151,7 @@ system_install_font() {
 }
 
 cmd_system() {
-    local apply=0 pam=auto xwww=auto font=auto login=0 args=() arg
+    local apply=0 pam=auto xwww=auto font=auto login=auto args=() arg
     for arg in "$@"; do
         case "$arg" in
             --apply)    apply=1 ;;
@@ -152,8 +161,8 @@ cmd_system() {
             --no-xwww)  xwww=no ;;
             --font)     font=yes ;;
             --no-font)  font=no ;;
-            --login)    login=1 ;;
-            --no-login) login=0 ;;
+            --login)    login=yes ;;
+            --no-login) login=no ;;
             *)          args+=("$arg") ;;
         esac
     done
@@ -223,14 +232,19 @@ cmd_system() {
             system_install_font || warn "font: system-wide install failed (non-fatal)"
         fi
 
-        if [[ "$login" -eq 1 ]]; then
+        if [[ "$login" == no ]]; then
+            note "SDDM theme: skipped (--no-login)"
+        elif [[ "$login" == yes ]]; then
+            system_install_login_theme
+        elif sddm_active; then
+            note "SDDM is the active display manager; installing the login theme"
             system_install_login_theme
         else
-            note "SDDM theme: opt in with 'dotsniri system --apply --login' (never changed silently)"
+            note "SDDM theme: skipped (SDDM is not the active display manager; use --login to switch)"
         fi
     else
         note "plan only: re-run with --apply to execute the template"
-        note "integration plan: xwww (pinned ${XWWW_PINNED_VERSION:-v0.13.1}), PAM (prompt), Hack Nerd Font (SDDM), SDDM theme (only with --login)"
+        note "integration plan: xwww (pinned ${XWWW_PINNED_VERSION:-v0.13.1}), PAM (prompt), Hack Nerd Font (SDDM), SDDM theme (auto when SDDM is active; --login forces it, --no-login skips)"
         if [[ -n "$tpl" ]]; then
             if (( DRY_RUN )); then
                 note "[dry-run] would run: bash $tpl"
@@ -254,6 +268,9 @@ preflight_runtime() {
     (( ${#missing[@]} == 0 )) && return 0
 
     warn "missing required runtime tool(s): ${missing[*]}"
+    if [[ "${NO_SYSTEM:-0}" == "1" ]]; then
+        die "missing required runtime tool(s): ${missing[*]}; install them manually or drop --no-system"
+    fi
     if [[ "${PREFLIGHT_SYSTEM_RUNNING:-0}" -eq 1 ]]; then
         die "cannot bootstrap the missing tools automatically; install ${missing[*]} and re-run"
     fi

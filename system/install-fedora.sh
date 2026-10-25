@@ -67,6 +67,7 @@ PKGS=(
     qt5-qtwayland
     qt6-qtwayland
     qt6-qtmultimedia
+    sddm
 
     google-noto-sans-fonts
     google-noto-emoji-fonts

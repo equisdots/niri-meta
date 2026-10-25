@@ -68,6 +68,7 @@ PKGS=(
     qt5-wayland
     qt6-wayland
     qt6-multimedia
+    sddm
 
     noto-fonts
     noto-fonts-emoji

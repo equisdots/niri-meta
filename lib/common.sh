@@ -131,13 +131,13 @@ dotsniri — meta installer and updater for the equisdots niri stack
 Usage: dotsniri <command> [-y] [--dry-run]
 
 Commands:
-  setup              install the payload and, when asked, the system hook
-  install            clone/update the managed repos and deploy them
+  setup              install everything (payload + system phase), default niri
+  install            clone/update, deploy and run the full system phase
   deploy             deploy from existing clones (no clone or update)
   update             git pull the own repos and re-deploy
   list               show managed repos and their kind (own / shared)
   doctor             check binaries, clones, deploy and the niri config
-  reset              purge the niri deploy and reinstall from origin/main
+  reset              purge and reinstall everything from origin/main
   uninstall          reverse the deploy (clones and config are kept)
   desktop <mode>     select the default session: niri | hyprland | both
   login <action>     manage the DM session entry: install | remove | status
@@ -184,17 +184,31 @@ dotsniri login <install|remove|status>
   provides niri.desktop.
 EOF
             ;;
+        setup) cat <<'EOF'
+dotsniri setup [-y] [--no-system] [--pam|--no-pam] [--xwww|--no-xwww]
+               [--font|--no-font] [--login|--no-login]
+  Runs the full install (repos, deploy, system packages, xwww, PAM, font and
+  the SDDM theme when active), then defaults a fresh install to niri.
+  --no-system keeps it payload-only; --login forces the SDDM theme/DM switch.
+EOF
+            ;;
         install|deploy|update) cat <<'EOF'
-dotsniri <install|deploy|update>
-  install   clone/update the own repos, ensure the shared repos, then deploy
-  deploy    deploy from the existing clones (no clone or update)
+dotsniri <install|deploy|update> [--no-system]
+  install   clone/update the own repos, ensure the shared repos, deploy, then
+            run the full system phase (packages, xwww, PAM, font and the SDDM
+            theme when SDDM is active), app configs and the login entry.
+            --no-system keeps install to the payload only.
+  deploy    deploy from the existing clones (no clone, update or packages)
   update    pull the own repos and re-deploy (shared repos stay read-only)
 EOF
             ;;
         reset|uninstall) cat <<'EOF'
-dotsniri <reset|uninstall> [-y]
+dotsniri reset [-y] [--no-system]
+dotsniri uninstall [-y]
   Destructive operations. They prompt for confirmation unless -y is given.
     reset      remove the niri deploy, drop the own clones and reinstall
+               everything from origin/main, including the system phase
+               (--no-system keeps the reinstall to the payload)
     uninstall  reverse the deploy; clones and config are kept
 EOF
             ;;
@@ -207,7 +221,8 @@ dotsniri plugins [list|available|add <id>|remove <id>|enable|disable <id>]
 EOF
             ;;
         system) cat <<'EOF'
-dotsniri system [--apply] [--pam|--no-pam] [--xwww|--no-xwww] [--login]
+dotsniri system [--apply] [--pam|--no-pam] [--xwww|--no-xwww]
+                [--font|--no-font] [--login|--no-login]
   Resolves the distro (ID, then ID_LIKE) to a system/install-<distro>.sh
   template and installs the niri stack packages (compositor, portals, shell
   tools). Without --apply it only prints the plan. Arch and Fedora templates
@@ -217,7 +232,11 @@ dotsniri system [--apply] [--pam|--no-pam] [--xwww|--no-xwww] [--login]
     --pam       install /etc/pam.d/quickshell for the lock screen (asks first)
     --no-pam    never touch PAM
     --xwww      install/align the pinned xwww release (default; --no-xwww skips)
-    --login     run login/install.sh (SDDM theme + select SDDM; opt-in only)
+    --font      install Hack Nerd Font system-wide (default; --no-font skips)
+    --login     install the SDDM theme and select SDDM if another DM is active
+    --no-login  never touch the SDDM theme
+    (default)   install the SDDM theme only when SDDM is already the active
+                display manager; never switch DMs silently
 EOF
             ;;
         xwww) cat <<'EOF'
