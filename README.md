@@ -64,7 +64,7 @@ install instruction.
 | `uninstall` | reverse the deploy (overlays, units, portal, login entry, wrappers); clones and config kept |
 | `desktop <niri\|hyprland\|both>` | default session, `settings.json` mirror, all overlays in sync, login entry |
 | `login <install\|remove\|status>` | manage the DM session entry system-wide (via `niri-login`, sudo) |
-| `system [--apply] [--pam\|--no-pam] [--xwww\|--no-xwww] [--font\|--no-font] [--login\|--no-login]` | install distro packages and run the integration steps; the SDDM theme is installed automatically when SDDM is the active DM, `--login` forces it and `--no-login` skips it |
+| `system [--apply] [--pam\|--no-pam] [--xwww\|--no-xwww] [--font\|--no-font] [--login\|--no-login] [--nvidia\|--no-nvidia]` | install distro packages and run the integration steps; the SDDM theme is installed automatically when SDDM is the active DM, `--login` forces it and `--no-login` skips it; on Arch an NVIDIA GPU is detected and offered |
 | `xwww [--force]` | install/align the pinned `xwww-daemon` release (sudo) |
 | `plugins [list\|available\|add\|remove\|enable\|disable]` | manage the plugin set by the standard convention (parity with `dots plugins`) |
 | `version` | print the `dotsniri` version |
@@ -244,7 +244,10 @@ pluggable `system/` directory containing example templates only
 that phase by default (idempotent), even when niri is already installed;
 `--no-system` keeps them payload-only. The `system` verb exposes the same phase
 directly. It resolves the distro by `ID` and then by each `ID_LIKE` token,
-prints the matching template and, with `--apply`, runs it. See
+prints the matching template and, with `--apply`, runs it. Required packages
+are strict: a failed core or AUR package aborts the phase and names the missing
+packages. Only explicit flags (`--no-system`, `--no-xwww`, `--no-pam`,
+`--no-font`, `--no-login`, `--no-nvidia`) skip a step. See
 [`system/README.md`](system/README.md).
 
 The system phase also owns these integration steps:
@@ -261,6 +264,12 @@ The system phase also owns these integration steps:
   forces it even if another DM owns `display-manager.service`, and `--no-login`
   skips it. `dotsniri login` itself only manages the niri Wayland session
   entry, not the theme.
+- **NVIDIA**: on Arch-like systems, detects an NVIDIA GPU and offers the
+  `nvidia-dkms` setup used by the Hyprland installer (kernel headers,
+  mkinitcpio modules, `nvidia_drm.modeset`, nouveau blacklist, nvidia-drm
+  options, power services and the optional envycontrol sudoers rule).
+  `--nvidia` forces the offer (and fails if no GPU is present); `--no-nvidia`
+  skips it. AMD/Intel drivers stay distro-managed.
 
 The user-level systemd units and the portal override are deployed by `deploy`
 (no sudo); `reset`/`uninstall` clean them up.
@@ -286,7 +295,8 @@ lib/deploy.sh       deploy, overlay engine, reset/uninstall
 lib/desktop.sh      session selector, settings.json, session entry
 lib/login.sh        display-manager session entry (niri-login, sudo)
 lib/doctor.sh       checks and self-test
-lib/system.sh       deferred system hook, PAM/login integration, preflight
+lib/system.sh       system hook, PAM/login integration, preflight
+lib/nvidia.sh       NVIDIA detection and Arch driver/boot offer
 lib/xwww.sh         pinned xwww release/source installer
 share/              vendored defaults (settings fallback)
 system/             pluggable distro templates (examples only)

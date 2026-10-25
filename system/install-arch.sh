@@ -85,6 +85,7 @@ PKGS=(
     iw
     xdg-utils
     xdg-user-dirs
+    pciutils
     rust
     base-devel
 
@@ -98,13 +99,13 @@ PKGS=(
     polkit
 )
 
-# AUR-only / optional packages. Installed through paru/yay (bootstrapped below
-# when missing) and never fatal: a missing package only warns. `mpvpaper`
-# (video wallpapers) is AUR-only and must stay out of the core transaction,
-# because one unknown target makes pacman abort the whole install.
+# AUR-only packages required by the full niri stack. They stay out of the core
+# transaction (one unknown pacman target aborts it) and are installed one by
+# one through paru/yay (bootstrapped below). A failure is fatal: the installer
+# must not silently skip a dependency. `envycontrol` is installed by the NVIDIA
+# step only, so AMD/Intel systems do not pull it.
 OPTIONAL_PKGS=(
     mpvpaper
-    envycontrol
     bibata-cursor-theme
 )
 
@@ -183,19 +184,32 @@ ensure_aur_helper() {
 
 pacman_args=(--needed)
 (( ASSUME_YES )) && pacman_args+=(--noconfirm)
+failed_core=()
 if ! sudo pacman -S "${pacman_args[@]}" "${PKGS[@]}"; then
     printf 'Core transaction failed; retrying packages individually...\n' >&2
     for pkg in "${PKGS[@]}"; do
-        sudo pacman -S "${pacman_args[@]}" "$pkg" 2>/dev/null \
-            || printf 'core package skipped: %s\n' "$pkg" >&2
+        if ! sudo pacman -S "${pacman_args[@]}" "$pkg" 2>/dev/null; then
+            failed_core+=("$pkg")
+        fi
     done
 fi
+if (( ${#failed_core[@]} )); then
+    printf 'error: required packages could not be installed: %s\n' "${failed_core[*]}" >&2
+    exit 1
+fi
 
-# Optional packages are never fatal: install them through the AUR helper when
-# available, otherwise fall back to the official repositories and warn.
-if ensure_aur_helper; then
-    "$AUR_HELPER" -S --needed --noconfirm "${OPTIONAL_PKGS[@]}" \
-        || printf 'optional packages skipped: %s\n' "${OPTIONAL_PKGS[*]}" >&2
-elif ! sudo pacman -S "${pacman_args[@]}" "${OPTIONAL_PKGS[@]}" 2>/dev/null; then
-    printf 'optional packages skipped (not in the repos; no paru/yay): %s\n' "${OPTIONAL_PKGS[*]}" >&2
+if (( ${#OPTIONAL_PKGS[@]} > 0 )); then
+    if ! ensure_aur_helper; then
+        printf 'error: no AUR helper for required AUR packages: %s\n' "${OPTIONAL_PKGS[*]}" >&2
+        exit 1
+    fi
+    failed_optional=()
+    for pkg in "${OPTIONAL_PKGS[@]}"; do
+        "$AUR_HELPER" -S --needed --noconfirm "$pkg" \
+            || failed_optional+=("$pkg")
+    done
+    if (( ${#failed_optional[@]} )); then
+        printf 'error: required AUR packages could not be installed: %s\n' "${failed_optional[*]}" >&2
+        exit 1
+    fi
 fi

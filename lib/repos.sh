@@ -190,7 +190,7 @@ cmd_install() {
         case "$arg" in
             --no-system) do_system=0 ;;
             --system|--with-system) do_system=1 ;;
-            --pam|--no-pam|--xwww|--no-xwww|--font|--no-font|--login|--no-login)
+            --pam|--no-pam|--xwww|--no-xwww|--font|--no-font|--login|--no-login|--nvidia|--no-nvidia)
                 system_args+=("$arg") ;;
         esac
     done
@@ -221,7 +221,10 @@ cmd_install() {
     # already present. This is what installs new dependencies such as
     # qt6-multimedia, xwww, PAM and the SDDM theme; `--no-system` opts out.
     if (( do_system )); then
-        cmd_system "${system_args[@]}" || warn "system phase failed; the payload is installed"
+        if ! cmd_system "${system_args[@]}"; then
+            warn "system phase failed; required dependencies were not installed"
+            return 1
+        fi
     else
         note "system phase skipped (--no-system); packages, xwww, PAM and the login theme are not installed"
     fi

@@ -114,6 +114,8 @@ fi
 . "$ROOT_DIR/lib/xwww.sh"
 # shellcheck source=../lib/system.sh
 . "$ROOT_DIR/lib/system.sh"
+# shellcheck source=../lib/nvidia.sh
+. "$ROOT_DIR/lib/nvidia.sh"
 # shellcheck source=../lib/plugins.sh
 . "$ROOT_DIR/lib/plugins.sh"
 

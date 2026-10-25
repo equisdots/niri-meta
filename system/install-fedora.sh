@@ -84,6 +84,7 @@ PKGS=(
     iw
     xdg-utils
     xdg-user-dirs
+    pciutils
     cargo
 
     pipewire
@@ -95,9 +96,9 @@ PKGS=(
     polkit
 )
 
-# Optional / COPR / third-party packages: never fatal.
+# Optional / COPR / third-party packages: installed one by one and fatal when
+# missing, so the installer never silently skips a dependency.
 OPTIONAL_PKGS=(
-    envycontrol
     gpu-screen-recorder
     satty
     mpvpaper
@@ -138,6 +139,25 @@ if (( ! ASSUME_YES )); then
     [[ "$reply" =~ ^[Yy]$ ]] || { printf 'aborted\n'; exit 1; }
 fi
 
-sudo dnf install -y "${PKGS[@]}"
-sudo dnf install -y "${OPTIONAL_PKGS[@]}" \
-    || printf 'optional packages skipped: %s\n' "${OPTIONAL_PKGS[*]}" >&2
+failed_core=()
+if ! sudo dnf install -y "${PKGS[@]}"; then
+    printf 'Core transaction failed; retrying packages individually...\n' >&2
+    for pkg in "${PKGS[@]}"; do
+        sudo dnf install -y "$pkg" || failed_core+=("$pkg")
+    done
+fi
+if (( ${#failed_core[@]} )); then
+    printf 'error: required packages could not be installed: %s\n' "${failed_core[*]}" >&2
+    exit 1
+fi
+
+if (( ${#OPTIONAL_PKGS[@]} > 0 )); then
+    failed_optional=()
+    for pkg in "${OPTIONAL_PKGS[@]}"; do
+        sudo dnf install -y "$pkg" || failed_optional+=("$pkg")
+    done
+    if (( ${#failed_optional[@]} )); then
+        printf 'error: required optional packages could not be installed: %s\n' "${failed_optional[*]}" >&2
+        exit 1
+    fi
+fi

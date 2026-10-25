@@ -17,6 +17,19 @@ All notable changes to `niri-meta` are documented here. The format follows
   active display manager; `--login` forces it (and may switch another DM to
   SDDM), `--no-login` skips it. `sddm` is in the Arch and Fedora package
   templates.
+- Dependencies are now strict: the Arch template retries the core transaction
+  package by package, aborts and names any required package that fails, and
+  installs each AUR package individually (a failure is fatal, not a warning).
+  `cmd_system` checks the template exit status and returns non-zero if a
+  required integration step fails; `install` aborts instead of continuing with
+  missing dependencies.
+- NVIDIA offer on Arch-like systems, mirroring the Hyprland installer:
+  detects an NVIDIA GPU and offers `nvidia-dkms`, kernel headers, mkinitcpio
+  modules, `nvidia_drm.modeset` on GRUB/systemd-boot, nouveau blacklisting,
+  nvidia-drm options, power services and the optional envycontrol sudoers rule.
+  `--nvidia` forces it (and fails without a GPU), `--no-nvidia` skips it, and
+  AMD/Intel systems are a no-op. `pciutils` is in the package lists;
+  `envycontrol` moved from the optional AUR group to the NVIDIA step.
 - `install` now runs the niri repo's standalone app config installer,
   including xtop (built from `xtop-cli/xtop` with cargo), the interactive
   wallpaper scenes and Hack Nerd Font system-wide for SDDM. `DOTSNIRI_NO_APPS`
