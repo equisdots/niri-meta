@@ -186,18 +186,20 @@ EOF
             ;;
         setup) cat <<'EOF'
 dotsniri setup [-y] [--no-system] [--pam|--no-pam] [--xwww|--no-xwww]
-               [--font|--no-font] [--login|--no-login]
-  Runs the full install (repos, deploy, system packages, xwww, PAM, font and
-  the SDDM theme when active), then defaults a fresh install to niri.
-  --no-system keeps it payload-only; --login forces the SDDM theme/DM switch.
+               [--font|--no-font] [--login|--no-login] [--nvidia|--no-nvidia]
+  Runs the full install (repos, deploy, system packages, xwww, PAM, font, the
+  SDDM theme when active and the NVIDIA offer on Arch), then defaults a fresh
+  install to niri. --no-system keeps it payload-only; --login forces the SDDM
+  theme/DM switch; --no-nvidia skips the NVIDIA offer.
 EOF
             ;;
         install|deploy|update) cat <<'EOF'
-dotsniri <install|deploy|update> [--no-system]
+dotsniri <install|deploy|update> [--no-system] [--nvidia|--no-nvidia]
   install   clone/update the own repos, ensure the shared repos, deploy, then
-            run the full system phase (packages, xwww, PAM, font and the SDDM
-            theme when SDDM is active), app configs and the login entry.
-            --no-system keeps install to the payload only.
+            run the full system phase (packages, xwww, PAM, font, the SDDM
+            theme when SDDM is active and the NVIDIA offer on Arch), app configs
+            and the login entry. --no-system keeps install to the payload only;
+            --no-nvidia skips the NVIDIA offer.
   deploy    deploy from the existing clones (no clone, update or packages)
   update    pull the own repos and re-deploy (shared repos stay read-only)
 EOF
@@ -223,6 +225,7 @@ EOF
         system) cat <<'EOF'
 dotsniri system [--apply] [--pam|--no-pam] [--xwww|--no-xwww]
                 [--font|--no-font] [--login|--no-login]
+                [--nvidia|--no-nvidia]
   Resolves the distro (ID, then ID_LIKE) to a system/install-<distro>.sh
   template and installs the niri stack packages (compositor, portals, shell
   tools). Without --apply it only prints the plan. Arch and Fedora templates
@@ -237,6 +240,10 @@ dotsniri system [--apply] [--pam|--no-pam] [--xwww|--no-xwww]
     --no-login  never touch the SDDM theme
     (default)   install the SDDM theme only when SDDM is already the active
                 display manager; never switch DMs silently
+    --nvidia    on Arch, force the NVIDIA driver/boot setup (requires a GPU)
+    --no-nvidia never touch NVIDIA drivers
+    (default)   detect an NVIDIA GPU and offer nvidia-dkms/mkinitcpio/boot
+                parameters; with no NVIDIA GPU it is a no-op
 EOF
             ;;
         xwww) cat <<'EOF'

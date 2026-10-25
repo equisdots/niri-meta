@@ -25,6 +25,7 @@ After the template, the system phase owns these integration steps:
 | PAM | prompt | `--pam`, `--no-pam` | Installs `/etc/pam.d/quickshell` from the shared `hyprland` clone (sudo). Backs up an existing file; without it the lock screen cannot authenticate. `install`/`reset` pass `--pam`. |
 | Font | on | `--no-font` | Installs Hack Nerd Font system-wide for SDDM/login. |
 | SDDM | auto | `--login`, `--no-login` | Runs `login/install.sh` automatically when SDDM is already the active display manager (safe). `--login` forces the theme and may switch `display-manager.service` to SDDM; `--no-login` skips it. |
+| NVIDIA | offer | `--nvidia`, `--no-nvidia` | On Arch-like systems, detects an NVIDIA GPU and offers the nvidia-dkms/boot setup (kernel headers, mkinitcpio, nvidia_drm.modeset, nouveau blacklist, nvidia-drm options, power services, optional envycontrol rule). `--nvidia` forces it and fails without a GPU; `--no-nvidia` skips it. AMD/Intel stay distro-managed. |
 
 `dotsniri install`, `setup` and `reset` run the full system phase by default,
 even when niri is already installed; `--no-system` keeps them payload-only.
@@ -33,6 +34,13 @@ described below.
 
 Templates receive the extra arguments given to `dotsniri system` and must honor
 `--dry-run`, `-y/--yes` and `--help`.
+
+Dependency failures are fatal. The Arch template retries the core transaction
+package by package to identify the culprit and exits non-zero if any required
+package fails; AUR packages are installed one by one and also abort on failure.
+`cmd_system` checks the template exit status and returns non-zero if the
+template, xwww, PAM, font, SDDM theme or an accepted NVIDIA setup fails. Only
+explicit flags skip a step.
 
 ## Bootstrap preflight
 
@@ -53,9 +61,11 @@ Both are examples only. Copy one to `system/install-<your-id>.sh`, review the
 package list and adapt it. Use `. /etc/os-release` values (`ID`, `ID_LIKE`) to
 branch for derivatives; the resolver already falls back to `ID_LIKE`.
 
-AUR/COPR/third-party packages (`mpvpaper`, `envycontrol` and
-`bibata-cursor-theme` on Arch; `mpvpaper` and `rofi-emoji` on Fedora) are
-installed separately and never fail the core transaction. `mpvpaper` is
+AUR/COPR/third-party packages (`mpvpaper` and `bibata-cursor-theme` on Arch;
+`mpvpaper` and `rofi-emoji` on Fedora) are installed separately and never fail
+the core transaction. They are still required: each one is attempted and a
+failure aborts the system phase instead of being silently skipped (`envycontrol`
+is installed only by the NVIDIA step). `mpvpaper` is
 AUR-only on Arch and must stay in the optional group: one unknown pacman
 target aborts the whole core install. If the core transaction fails for any
 other reason, the Arch template retries every core package individually so
@@ -77,8 +87,8 @@ purpose: the davincix wallpaper picker and video previews import
   `/etc` outside the explicit system-phase steps above.
 - Change the display manager silently: the SDDM theme auto-runs only when SDDM
   is already active; switching another DM requires `--login`.
-- Install or configure GPU drivers (NVIDIA/AMD/Intel); that is hardware-specific
-  and belongs to the distro's kernel/driver setup, not the dots payload.
+- Install GPU drivers without an offer: on Arch-like systems the NVIDIA setup
+  is offered (or forced with `--nvidia`); AMD/Intel drivers stay distro-managed.
 
 The display-manager session entry is a separate command: `dotsniri login
 install|remove|status` places `niri.desktop` in a system-scanned

@@ -69,18 +69,21 @@ system_install_pam() {
         return 0
     fi
     if [[ ! -f "$src" ]]; then
-        warn "PAM: $src not found (run 'dotsniri install' to clone shared hyprland); skipping"
-        return 0
+        warn "PAM: $src not found (run 'dotsniri install' to clone shared hyprland)"
+        return 1
     fi
     if (( DRY_RUN )); then
         msg "[dry-run] would install $src -> /etc/pam.d/quickshell (sudo)"
         return 0
     fi
     if [[ -f /etc/pam.d/quickshell ]]; then
-        as_root cp -f /etc/pam.d/quickshell /etc/pam.d/quickshell.backup
+        as_root cp -f /etc/pam.d/quickshell /etc/pam.d/quickshell.backup || return 1
         note "PAM: existing service backed up to /etc/pam.d/quickshell.backup"
     fi
-    as_root install -Dm644 "$src" /etc/pam.d/quickshell
+    if ! as_root install -Dm644 "$src" /etc/pam.d/quickshell; then
+        warn "PAM: could not install /etc/pam.d/quickshell"
+        return 1
+    fi
     ok "PAM service 'quickshell' installed"
 }
 
@@ -100,8 +103,8 @@ system_install_login_theme() {
     local repo
     repo="$(repo_path login)"
     if [[ ! -f "$repo/install.sh" ]]; then
-        warn "login: $repo/install.sh not found (run 'dotsniri install'); skipping the SDDM theme"
-        return 0
+        warn "login: $repo/install.sh not found (run 'dotsniri install')"
+        return 1
     fi
     if (( DRY_RUN )); then
         msg "[dry-run] would run $repo/install.sh (SDDM theme; selects SDDM only when --login forces it)"
@@ -112,6 +115,7 @@ system_install_login_theme() {
         ok "SDDM theme installed"
     else
         warn "login: SDDM theme installation failed"
+        return 1
     fi
 }
 
@@ -127,6 +131,10 @@ system_install_font() {
         return 0
     fi
     if [[ ! -f "$src" ]]; then
+        if (( DRY_RUN )); then
+            msg "[dry-run] would download Hack Nerd Font to $src and install it system-wide"
+            return 0
+        fi
         run mkdir -p "$(dirname "$src")"
         if have curl; then
             run curl -fsSL "$url" -o "$src" || true
@@ -135,35 +143,37 @@ system_install_font() {
         fi
     fi
     if [[ ! -f "$src" ]]; then
-        warn "Hack Nerd Font not available; SDDM may show boxes for icons"
-        return 0
+        warn "Hack Nerd Font could not be downloaded"
+        return 1
     fi
     if (( DRY_RUN )); then
         msg "[dry-run] would install $src -> $dst (sudo) and run fc-cache"
         return 0
     fi
-    if as_root install -Dm644 "$src" "$dst"; then
-        as_root fc-cache -f >/dev/null 2>&1 || true
-        ok "Hack Nerd Font installed system-wide (SDDM/login)"
-    else
+    if ! as_root install -Dm644 "$src" "$dst"; then
         warn "could not install Hack Nerd Font system-wide"
+        return 1
     fi
+    as_root fc-cache -f >/dev/null 2>&1 || warn "could not refresh the font cache"
+    ok "Hack Nerd Font installed system-wide (SDDM/login)"
 }
 
 cmd_system() {
-    local apply=0 pam=auto xwww=auto font=auto login=auto args=() arg
+    local apply=0 pam=auto xwww=auto font=auto login=auto nvidia=auto failed=0 args=() arg
     for arg in "$@"; do
         case "$arg" in
-            --apply)    apply=1 ;;
-            --pam)      pam=yes ;;
-            --no-pam)   pam=no ;;
-            --xwww)     xwww=yes ;;
-            --no-xwww)  xwww=no ;;
-            --font)     font=yes ;;
-            --no-font)  font=no ;;
-            --login)    login=yes ;;
-            --no-login) login=no ;;
-            *)          args+=("$arg") ;;
+            --apply)     apply=1 ;;
+            --pam)       pam=yes ;;
+            --no-pam)    pam=no ;;
+            --xwww)      xwww=yes ;;
+            --no-xwww)   xwww=no ;;
+            --font)      font=yes ;;
+            --no-font)   font=no ;;
+            --login)     login=yes ;;
+            --no-login)  login=no ;;
+            --nvidia)    nvidia=yes ;;
+            --no-nvidia) nvidia=no ;;
+            *)           args+=("$arg") ;;
         esac
     done
 
@@ -184,7 +194,8 @@ cmd_system() {
         if [[ "$apply" -eq 0 ]]; then
             return 0
         fi
-        note "continuing with the integration steps only (xwww, PAM, login)"
+        warn "cannot install the required packages without a template; aborting"
+        return 1
     fi
 
     if [[ -n "$tpl" ]]; then
@@ -196,10 +207,13 @@ cmd_system() {
             if (( DRY_RUN )); then
                 msg "[dry-run] bash $tpl ${args[*]-}"
             else
-                confirm "Run $tpl? It may use sudo." || { warn "aborted"; return 0; }
+                confirm "Run $tpl? It may use sudo." || { warn "aborted"; return 1; }
                 local targs=("${args[@]}")
                 (( ASSUME_YES )) && targs+=(--yes)
-                bash "$tpl" "${targs[@]}"
+                if ! bash "$tpl" "${targs[@]}"; then
+                    warn "system template failed: $tpl"
+                    return 1
+                fi
             fi
         fi
 
@@ -210,18 +224,20 @@ cmd_system() {
         fi
 
         if [[ "$xwww" != no ]]; then
-            cmd_xwww || warn "xwww: installation failed; the wallpaper daemon will be missing"
+            cmd_xwww || { warn "xwww: installation failed"; failed=1; }
         else
             note "xwww: skipped (--no-xwww)"
         fi
 
+        nvidia_step "$nvidia" || failed=1
+
         if [[ "$pam" == no ]]; then
             note "PAM: skipped (--no-pam)"
         elif pam_quickshell_configured; then
-            system_install_pam
+            system_install_pam || failed=1
         elif [[ "$pam" == yes ]] || (( DRY_RUN )) \
              || confirm "Install /etc/pam.d/quickshell for the lock screen? [y/N]"; then
-            system_install_pam
+            system_install_pam || failed=1
         else
             note "PAM: skipped; the lock screen will not accept passwords"
         fi
@@ -229,22 +245,28 @@ cmd_system() {
         if [[ "$font" == no ]]; then
             note "system font: skipped (--no-font)"
         else
-            system_install_font || warn "font: system-wide install failed (non-fatal)"
+            system_install_font || failed=1
         fi
 
         if [[ "$login" == no ]]; then
             note "SDDM theme: skipped (--no-login)"
         elif [[ "$login" == yes ]]; then
-            system_install_login_theme
+            system_install_login_theme || failed=1
         elif sddm_active; then
             note "SDDM is the active display manager; installing the login theme"
-            system_install_login_theme
+            system_install_login_theme || failed=1
         else
             note "SDDM theme: skipped (SDDM is not the active display manager; use --login to switch)"
         fi
+
+        if (( failed )); then
+            warn "system phase incomplete: at least one required step failed"
+            return 1
+        fi
+        return 0
     else
         note "plan only: re-run with --apply to execute the template"
-        note "integration plan: xwww (pinned ${XWWW_PINNED_VERSION:-v0.13.1}), PAM (prompt), Hack Nerd Font (SDDM), SDDM theme (auto when SDDM is active; --login forces it, --no-login skips)"
+        note "integration plan: xwww (pinned ${XWWW_PINNED_VERSION:-v0.13.1}), NVIDIA (detect/offer on Arch), PAM (prompt), Hack Nerd Font (SDDM), SDDM theme (auto when SDDM is active; --login forces it, --no-login skips)"
         if [[ -n "$tpl" ]]; then
             if (( DRY_RUN )); then
                 note "[dry-run] would run: bash $tpl"
@@ -252,6 +274,7 @@ cmd_system() {
                 bash "$tpl" --dry-run || true
             fi
         fi
+        return 0
     fi
 }
 

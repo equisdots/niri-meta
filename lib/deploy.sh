@@ -139,7 +139,7 @@ cmd_setup() {
     for arg in "$@"; do
         case "$arg" in
             --system|--with-system) ;; # install runs the system phase by default
-            --no-system|--pam|--no-pam|--xwww|--no-xwww|--font|--no-font|--login|--no-login)
+            --no-system|--pam|--no-pam|--xwww|--no-xwww|--font|--no-font|--login|--no-login|--nvidia|--no-nvidia)
                 install_args+=("$arg") ;;
         esac
     done
@@ -1007,7 +1007,7 @@ cmd_reset() {
     local install_args=() arg
     for arg in "$@"; do
         case "$arg" in
-            --no-system|--system|--with-system|--pam|--no-pam|--xwww|--no-xwww|--font|--no-font|--login|--no-login)
+            --no-system|--system|--with-system|--pam|--no-pam|--xwww|--no-xwww|--font|--no-font|--login|--no-login|--nvidia|--no-nvidia)
                 install_args+=("$arg") ;;
         esac
     done
