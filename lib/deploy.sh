@@ -640,7 +640,8 @@ deploy_settings() {
     if [[ ! -f "$user" ]]; then
         run cp -f "$def" "$user"
         ok "settings.json seeded from $def"
-        return 0
+        # Fall through to the merge below: the shipped default has a literal
+        # "~" in wallpaperDir and the shell resolves it verbatim.
     fi
 
     if ! have jq; then
