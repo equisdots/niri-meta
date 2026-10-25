@@ -135,16 +135,18 @@ write_version_state() {
 }
 
 cmd_setup() {
-    local do_system=0 arg sys_args=(--apply)
+    local install_args=() arg
     for arg in "$@"; do
         case "$arg" in
-            --system|--with-system) do_system=1 ;;
-            --pam|--no-pam|--xwww|--no-xwww|--login|--no-login)
-                sys_args+=("$arg") ;;
+            --system|--with-system) ;; # install runs the system phase by default
+            --no-system|--pam|--no-pam|--xwww|--no-xwww|--font|--no-font|--login|--no-login)
+                install_args+=("$arg") ;;
         esac
     done
 
-    cmd_install
+    # install already runs the full system phase (packages, xwww, PAM, font,
+    # SDDM theme when active); do not run it a second time here.
+    cmd_install "${install_args[@]}"
 
     # On a fresh install default to the niri session; never flip an existing
     # choice made by a parallel `dots` + `dotsniri` setup.
@@ -154,11 +156,6 @@ cmd_setup() {
         cmd_desktop niri
     fi
 
-    if [[ "$do_system" -eq 1 ]] || ! have niri; then
-        cmd_system "${sys_args[@]}" || warn "system phase failed; the payload is installed"
-    else
-        note "niri is present; run 'dotsniri system' to (re)install packages"
-    fi
     ok "setup finished — select the niri session at the login screen"
 }
 
@@ -1007,6 +1004,13 @@ restore_reset_state() {
 }
 
 cmd_reset() {
+    local install_args=() arg
+    for arg in "$@"; do
+        case "$arg" in
+            --no-system|--system|--with-system|--pam|--no-pam|--xwww|--no-xwww|--font|--no-font|--login|--no-login)
+                install_args+=("$arg") ;;
+        esac
+    done
     confirm "Reset the niri deploy and reinstall from origin/main? User data is preserved." \
         || { warn "aborted"; return 0; }
     if ! reset_network_ok; then
@@ -1036,7 +1040,7 @@ cmd_reset() {
         fi
     done < <(repos_all)
 
-    if ! ( cmd_install ); then
+    if ! ( cmd_install "${install_args[@]}" ); then
         if restore_reset_state "$RESET_SNAPSHOT"; then
             warn "reset install failed; restored the pre-reset shell/config snapshot"
         else

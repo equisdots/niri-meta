@@ -185,6 +185,17 @@ reset_network_ok() {
 # ── Commands ────────────────────────────────────────────────────────────────
 
 cmd_install() {
+    local do_system=1 system_args=(--apply --pam) arg
+    for arg in "$@"; do
+        case "$arg" in
+            --no-system) do_system=0 ;;
+            --system|--with-system) do_system=1 ;;
+            --pam|--no-pam|--xwww|--no-xwww|--font|--no-font|--login|--no-login)
+                system_args+=("$arg") ;;
+        esac
+    done
+
+    if (( do_system )); then NO_SYSTEM=0; else NO_SYSTEM=1; fi
     preflight_runtime
     local name n=0 failed=()
     while IFS= read -r name; do
@@ -206,10 +217,13 @@ cmd_install() {
     cmd_deploy
     [[ -f "$DESKTOP_STATE" ]] && { set_settings_compositor "$(desktop_current)" || true; }
 
-    # Bootstrap the compositor when missing so `dotsniri install` alone is
-    # sufficient on a fresh machine.
-    if ! have niri; then
-        cmd_system --apply || warn "system phase failed; install niri manually and re-run 'dotsniri install'"
+    # Full install: always run the system phase (idempotent), even when niri is
+    # already present. This is what installs new dependencies such as
+    # qt6-multimedia, xwww, PAM and the SDDM theme; `--no-system` opts out.
+    if (( do_system )); then
+        cmd_system "${system_args[@]}" || warn "system phase failed; the payload is installed"
+    else
+        note "system phase skipped (--no-system); packages, xwww, PAM and the login theme are not installed"
     fi
 
     # User app configs after the package phase, so the kitty/starship installers

@@ -8,6 +8,15 @@ All notable changes to `niri-meta` are documented here. The format follows
 
 ### Added
 
+- `install`, `setup` and `reset` now run the full system phase by default
+  (distro packages, xwww, PAM, Hack Nerd Font and the SDDM theme when SDDM is
+  active), even when niri is already installed. `--no-system` keeps them
+  payload-only. The remote one-liner and `reset` are therefore self-sufficient
+  for the whole niri stack.
+- `system` installs the SDDM theme automatically when SDDM is already the
+  active display manager; `--login` forces it (and may switch another DM to
+  SDDM), `--no-login` skips it. `sddm` is in the Arch and Fedora package
+  templates.
 - `install` now runs the niri repo's standalone app config installer,
   including xtop (built from `xtop-cli/xtop` with cargo), the interactive
   wallpaper scenes and Hack Nerd Font system-wide for SDDM. `DOTSNIRI_NO_APPS`
@@ -41,9 +50,9 @@ All notable changes to `niri-meta` are documented here. The format follows
   group and can never abort the core transaction. If the core transaction
   still fails, every core package is retried individually so the essentials
   (notably `qt6-multimedia`) are installed.
-- `doctor` now requires `inotifywait` and `socat`, and checks that the
-  QtMultimedia QML module is installed (a missing module silently breaks the
-  wallpaper picker).
+- `doctor` now requires `inotifywait` and `socat`, checks that the QtMultimedia
+  QML module is installed (a missing module silently breaks the wallpaper
+  picker), and verifies the SDDM theme when SDDM is the active display manager.
 
 ### Fixed
 

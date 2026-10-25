@@ -266,6 +266,18 @@ check_login_entry() {
     fi
 }
 
+check_login_theme() {
+    local theme="/usr/share/sddm/themes/x"
+    if [[ -f "$theme/Main.qml" && -f "$theme/theme.conf" ]]; then
+        ok "SDDM theme 'x' installed"
+    elif sddm_active; then
+        warn "SDDM is active but the 'x' theme is missing (run: dotsniri system --apply)"
+        DOCTOR_FAIL=1
+    else
+        note "SDDM theme 'x' not installed (SDDM is not active; use --login to install/switch)"
+    fi
+}
+
 check_notification_daemon() {
     local p found=0
     for p in mako dunst; do
@@ -403,6 +415,7 @@ cmd_doctor() {
     check_niri_integration
     check_system_tools
     check_qt_multimedia
+    check_login_theme
 
     if (( DOCTOR_FAIL == 0 )); then
         ok "doctor: all critical checks passed"

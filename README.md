@@ -17,7 +17,7 @@ consumed read-only from `~/.local/share/equisdots` and remain owned by `dots`.
 ```sh
 git clone https://github.com/equisdots/niri-meta.git
 cd niri-meta
-./bin/dotsniri install          # clone/update and deploy the niri stack
+./bin/dotsniri install          # full install: repos + deploy + system packages
 ./bin/dotsniri desktop niri     # select niri as the default session
 ./bin/dotsniri doctor           # check binaries, clones, deploy and config
 ```
@@ -53,18 +53,18 @@ install instruction.
 
 | Command | What it does |
 | --- | --- |
-| `setup` | `install`, default to niri on a fresh install, then run the system package phase when niri is missing (or with `--system`) |
-| `install` | clone/update the own repos plus the shared bases (`hyprland` scripts, shell, plugins), default the desktop to niri, deploy, install the user app configs (kitty/starship/nvim/xtop/scenes/Hack Nerd Font), bootstrap packages when niri is missing, and ensure the login entry |
-| `deploy` | deploy from the existing clones (no clone or update), in phases |
+| `setup` | `install` everything (payload + full system phase), then default to niri |
+| `install` | clone/update the own repos plus the shared bases, deploy, run the full system phase (packages, xwww, PAM, font, SDDM theme when SDDM is active), install the user app configs and the login entry; `--no-system` keeps it payload-only |
+| `deploy` | deploy from the existing clones (no clone, update or packages), in phases |
 | `update` | pull the own repos plus the shared bases, then re-deploy |
 | `list` | managed repos with their kind (`own` / `shared`) and state |
 | `doctor` | binaries, clones, shell base, plugin standard/default plugins, shared scripts, niri shell backend, overlays, units/portal/PAM, settings and `niri validate` |
 | `doctor --self-test` | syntax-check the toolkit (`bash -n`); works without niri |
-| `reset` | remove the niri deploy (config, units, portal), drop the own clones, reinstall from origin/main |
+| `reset` | remove the niri deploy (config, units, portal), drop the own clones, reinstall everything from origin/main, including the system phase (`--no-system` skips packages) |
 | `uninstall` | reverse the deploy (overlays, units, portal, login entry, wrappers); clones and config kept |
 | `desktop <niri\|hyprland\|both>` | default session, `settings.json` mirror, all overlays in sync, login entry |
 | `login <install\|remove\|status>` | manage the DM session entry system-wide (via `niri-login`, sudo) |
-| `system [--apply] [--pam\|--no-pam] [--xwww\|--no-xwww] [--font\|--no-font] [--login]` | install distro packages and run the integration steps; `--login` is the explicit SDDM-theme opt-in |
+| `system [--apply] [--pam\|--no-pam] [--xwww\|--no-xwww] [--font\|--no-font] [--login\|--no-login]` | install distro packages and run the integration steps; the SDDM theme is installed automatically when SDDM is the active DM, `--login` forces it and `--no-login` skips it |
 | `xwww [--force]` | install/align the pinned `xwww-daemon` release (sudo) |
 | `plugins [list\|available\|add\|remove\|enable\|disable]` | manage the plugin set by the standard convention (parity with `dots plugins`) |
 | `version` | print the `dotsniri` version |
@@ -143,7 +143,7 @@ never wipe an applied overlay:
 | `palettes` `*.json`, `community/` | `.../quickshell/dock/palettes/` | `cp -f`, user palettes and editor edits survive |
 | `theme-sync` | `~/.local/bin/theme-sync` | only installed if missing |
 | `davincix` | `~/.local/bin/davincix` | only installed if missing |
-| `login` | system SDDM theme | system phase, **only with `--login`** (it may select SDDM) |
+| `login` | system SDDM theme | system phase; auto when SDDM is active, `--login` forces a switch, `--no-login` skips |
 | `login` | system `wayland-sessions/niri.desktop` | installed by `dotsniri login` (sudo); skipped if the distro provides one |
 | `background` | none | consumed by davincix / xwww at runtime |
 | this repo | `~/.local/bin/dotsniri` | always refreshed |
@@ -236,17 +236,18 @@ It collects the system and display manager, GPU, niri binaries and version,
 session entries, SDDM config, `niri validate`, session logs, journals, logind
 state, dependencies and the equisdots state. Nothing modifies the system.
 
-## Deferred system integration
+## System integration
 
-Installing packages, fonts, the SDDM theme, PAM and xwww is **deferred** and
-never hardcoded in the core. The `system` verb delegates packages to a
+Installing packages, fonts, the SDDM theme, PAM and xwww is **delegated** to a
 pluggable `system/` directory containing example templates only
-(`install-arch.sh`, `install-fedora.sh`). `dotsniri system` resolves the distro
-by `ID` and then by each `ID_LIKE` token, prints the matching template and,
-with `--apply`, runs it. `setup` runs the same phase automatically when niri is
-missing. See [`system/README.md`](system/README.md).
+(`install-arch.sh`, `install-fedora.sh`). `install`, `setup` and `reset` run
+that phase by default (idempotent), even when niri is already installed;
+`--no-system` keeps them payload-only. The `system` verb exposes the same phase
+directly. It resolves the distro by `ID` and then by each `ID_LIKE` token,
+prints the matching template and, with `--apply`, runs it. See
+[`system/README.md`](system/README.md).
 
-The system phase also owns three explicit integration steps:
+The system phase also owns these integration steps:
 
 - **xwww**: installs/aligns the pinned, checksum-verified release (source-build
   fallback) into `/usr/local/bin`; `dotsniri xwww` exposes the same helper.
@@ -255,10 +256,11 @@ The system phase also owns three explicit integration steps:
   with sudo. Without it the lock screen cannot authenticate. It prompts first;
   `--pam` opts in explicitly, `--no-pam` skips it, and an existing service file
   is backed up to `/etc/pam.d/quickshell.backup`.
-- **SDDM theme**: runs `login/install.sh` only with `--login`. That script may
-  switch `display-manager.service` to SDDM, so it is never changed silently.
-  `dotsniri login` itself only manages the niri Wayland session entry, not the
-  theme.
+- **SDDM theme**: runs `login/install.sh` automatically when SDDM is already
+  the active display manager (safe: it cannot switch anything). `--login`
+  forces it even if another DM owns `display-manager.service`, and `--no-login`
+  skips it. `dotsniri login` itself only manages the niri Wayland session
+  entry, not the theme.
 
 The user-level systemd units and the portal override are deployed by `deploy`
 (no sudo); `reset`/`uninstall` clean them up.

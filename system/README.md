@@ -17,17 +17,19 @@ finds `system/install-arch.sh`. It:
 - with `--apply` (or `-y`): asks for confirmation and runs the template, which
   is responsible for any `sudo` package work.
 
-After the template, the system phase owns three opt-in integration steps:
+After the template, the system phase owns these integration steps:
 
 | Step | Default | Flags | What it does |
 | --- | --- | --- | --- |
 | xwww | on | `--no-xwww` | Installs/aligns the pinned `xwww` release (checksum-verified, source-build fallback) into `/usr/local/bin`. `dotsniri xwww` runs the same helper. |
-| PAM | prompt | `--pam`, `--no-pam` | Installs `/etc/pam.d/quickshell` from the shared `hyprland` clone (sudo). Backs up an existing file; without it the lock screen cannot authenticate. |
-| SDDM | off | `--login` | Runs `login/install.sh`, which installs the SDDM theme **and may switch `display-manager.service` to SDDM**. Never runs without the explicit flag. |
+| PAM | prompt | `--pam`, `--no-pam` | Installs `/etc/pam.d/quickshell` from the shared `hyprland` clone (sudo). Backs up an existing file; without it the lock screen cannot authenticate. `install`/`reset` pass `--pam`. |
+| Font | on | `--no-font` | Installs Hack Nerd Font system-wide for SDDM/login. |
+| SDDM | auto | `--login`, `--no-login` | Runs `login/install.sh` automatically when SDDM is already the active display manager (safe). `--login` forces the theme and may switch `display-manager.service` to SDDM; `--no-login` skips it. |
 
-`dotsniri setup` runs the same phase with `--apply` when `niri` is missing, so a
-fresh machine can be bootstrapped with a single command. `install`, `deploy` and
-`update` also run the preflight described below.
+`dotsniri install`, `setup` and `reset` run the full system phase by default,
+even when niri is already installed; `--no-system` keeps them payload-only.
+`deploy` and `update` do not install packages. All of them run the preflight
+described below.
 
 Templates receive the extra arguments given to `dotsniri system` and must honor
 `--dry-run`, `-y/--yes` and `--help`.
@@ -73,7 +75,10 @@ purpose: the davincix wallpaper picker and video previews import
 - Install packages, fonts or the SDDM theme without the system phase.
 - Register system sessions, PAM services or portal files under `/usr` or
   `/etc` outside the explicit system-phase steps above.
-- Change the display manager silently: the SDDM theme step requires `--login`.
+- Change the display manager silently: the SDDM theme auto-runs only when SDDM
+  is already active; switching another DM requires `--login`.
+- Install or configure GPU drivers (NVIDIA/AMD/Intel); that is hardware-specific
+  and belongs to the distro's kernel/driver setup, not the dots payload.
 
 The display-manager session entry is a separate command: `dotsniri login
 install|remove|status` places `niri.desktop` in a system-scanned
