@@ -32,6 +32,13 @@ All notable changes to `niri-meta` are documented here. The format follows
 
 ### Fixed
 
+- Offline/incomplete updates are now fail-safe: `install` and `update` abort
+  before deploying if a required repo cannot be obtained, `deploy` refuses to
+  run with a missing/incomplete or dirty managed clone, `deploy_shell` verifies
+  the shell payload and snapshots the live tree under
+  `~/.local/state/equisdots-niri/backups/shell-*.tar.gz` (last 3), and
+  `overlay_apply` refuses an empty overlay source. The current installation is
+  never touched when these checks fail.
 - `deploy`: a fresh `settings.json` is now merged after seeding instead of
   returning early, so the shipped `wallpaperDir: "~/.config/hypr/wallpapers"`
   is expanded to `$HOME` on the first install.
