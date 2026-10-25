@@ -17,12 +17,12 @@ All notable changes to `niri-meta` are documented here. The format follows
   active display manager; `--login` forces it (and may switch another DM to
   SDDM), `--no-login` skips it. `sddm` is in the Arch and Fedora package
   templates.
-- Dependencies are now strict: the Arch template retries the core transaction
-  package by package, aborts and names any required package that fails, and
-  installs each AUR package individually (a failure is fatal, not a warning).
-  `cmd_system` checks the template exit status and returns non-zero if a
-  required integration step fails; `install` aborts instead of continuing with
-  missing dependencies.
+- The system phase now runs before deploy, so a package/NVIDIA failure leaves
+  the existing dots deployment untouched instead of half-applying a new shell.
+  The Arch template resolves the full package set first, installs the core in
+  one atomic pacman transaction (no per-package fallback), and retries the AUR
+  transaction once. `cmd_system` still returns non-zero if a required step
+  fails, and `install` aborts before deploy.
 - NVIDIA offer on Arch-like systems, mirroring the Hyprland installer:
   detects an NVIDIA GPU and offers `nvidia-dkms`, kernel headers, mkinitcpio
   modules, `nvidia_drm.modeset` on GRUB/systemd-boot, nouveau blacklisting,

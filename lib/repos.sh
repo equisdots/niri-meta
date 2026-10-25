@@ -206,6 +206,18 @@ cmd_install() {
         die "install aborted: could not obtain required repo(s): ${failed[*]}. No existing installation was modified."
     fi
 
+    # Full install: run the system phase before touching the deployed payload.
+    # If package/resolution/NVIDIA setup fails, the user's existing config stays
+    # exactly as it was; there is no half-deployed shell. Rerunning is safe.
+    if (( do_system )); then
+        if ! cmd_system "${system_args[@]}"; then
+            warn "system phase failed; the existing deployment was left untouched"
+            return 1
+        fi
+    else
+        note "system phase skipped (--no-system); packages, xwww, PAM and the login theme are not installed"
+    fi
+
     # Fresh niri-stack install: default to the niri session before deploying so
     # the compositor overlays are applied. Without this the shell keeps the
     # hardcoded Hyprland backend and breaks under niri (a gray screen with only
@@ -216,18 +228,6 @@ cmd_install() {
 
     cmd_deploy
     [[ -f "$DESKTOP_STATE" ]] && { set_settings_compositor "$(desktop_current)" || true; }
-
-    # Full install: always run the system phase (idempotent), even when niri is
-    # already present. This is what installs new dependencies such as
-    # qt6-multimedia, xwww, PAM and the SDDM theme; `--no-system` opts out.
-    if (( do_system )); then
-        if ! cmd_system "${system_args[@]}"; then
-            warn "system phase failed; required dependencies were not installed"
-            return 1
-        fi
-    else
-        note "system phase skipped (--no-system); packages, xwww, PAM and the login theme are not installed"
-    fi
 
     # User app configs after the package phase, so the kitty/starship installers
     # find their tools already present.

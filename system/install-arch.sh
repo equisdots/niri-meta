@@ -184,17 +184,21 @@ ensure_aur_helper() {
 
 pacman_args=(--needed)
 (( ASSUME_YES )) && pacman_args+=(--noconfirm)
-failed_core=()
-if ! sudo pacman -S "${pacman_args[@]}" "${PKGS[@]}"; then
-    printf 'Core transaction failed; retrying packages individually...\n' >&2
-    for pkg in "${PKGS[@]}"; do
-        if ! sudo pacman -S "${pacman_args[@]}" "$pkg" 2>/dev/null; then
-            failed_core+=("$pkg")
-        fi
-    done
+
+# Preflight: resolve the full core set before changing anything. A missing
+# target or unsatisfied dependency aborts here, with the user's current install
+# untouched. This is the check that would have caught mpvpaper in core.
+printf 'Preflight: resolving %d core packages...\n' "${#PKGS[@]}"
+if ! sudo pacman -Sp "${pacman_args[@]}" "${PKGS[@]}" >/dev/null; then
+    printf 'error: package resolution failed; nothing was installed\n' >&2
+    exit 1
 fi
-if (( ${#failed_core[@]} )); then
-    printf 'error: required packages could not be installed: %s\n' "${failed_core[*]}" >&2
+
+# Install the core set as one pacman transaction. Pacman commits atomically:
+# if this fails, no core package is installed and the caller aborts before the
+# dots payload is deployed.
+if ! sudo pacman -S "${pacman_args[@]}" "${PKGS[@]}"; then
+    printf 'error: core package transaction failed; nothing was installed\n' >&2
     exit 1
 fi
 
@@ -203,13 +207,14 @@ if (( ${#OPTIONAL_PKGS[@]} > 0 )); then
         printf 'error: no AUR helper for required AUR packages: %s\n' "${OPTIONAL_PKGS[*]}" >&2
         exit 1
     fi
-    failed_optional=()
-    for pkg in "${OPTIONAL_PKGS[@]}"; do
-        "$AUR_HELPER" -S --needed --noconfirm "$pkg" \
-            || failed_optional+=("$pkg")
-    done
-    if (( ${#failed_optional[@]} )); then
-        printf 'error: required AUR packages could not be installed: %s\n' "${failed_optional[*]}" >&2
-        exit 1
+    # One helper transaction for all AUR packages, with one retry. AUR builds
+    # are not atomic; the caller still keeps the existing deployment untouched
+    # and a rerun installs only the missing pieces.
+    if ! "$AUR_HELPER" -S --needed --noconfirm "${OPTIONAL_PKGS[@]}"; then
+        printf 'AUR transaction failed; retrying once...\n' >&2
+        if ! "$AUR_HELPER" -S --needed --noconfirm "${OPTIONAL_PKGS[@]}"; then
+            printf 'error: AUR package transaction failed: %s\n' "${OPTIONAL_PKGS[*]}" >&2
+            exit 1
+        fi
     fi
 fi

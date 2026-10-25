@@ -35,12 +35,14 @@ described below.
 Templates receive the extra arguments given to `dotsniri system` and must honor
 `--dry-run`, `-y/--yes` and `--help`.
 
-Dependency failures are fatal. The Arch template retries the core transaction
-package by package to identify the culprit and exits non-zero if any required
-package fails; AUR packages are installed one by one and also abort on failure.
-`cmd_system` checks the template exit status and returns non-zero if the
-template, xwww, PAM, font, SDDM theme or an accepted NVIDIA setup fails. Only
-explicit flags skip a step.
+Dependency failures are fatal, but the installer never half-deploys the dots.
+`install`/`setup`/`reset` run the system phase *before* `deploy`; if it fails,
+the existing shell/config is left untouched. The Arch template first resolves
+the whole package set with `pacman -Sp`, then installs the core in a single
+atomic pacman transaction (no per-package fallback), and retries the AUR
+transaction once. `cmd_system` checks the template exit status and returns
+non-zero if the template, xwww, PAM, font, SDDM theme or an accepted NVIDIA
+setup fails. Only explicit flags skip a step.
 
 ## Bootstrap preflight
 
