@@ -244,11 +244,12 @@ pluggable `system/` directory containing example templates only
 that phase by default (idempotent), even when niri is already installed;
 `--no-system` keeps them payload-only. The `system` verb exposes the same phase
 directly. It resolves the distro by `ID` and then by each `ID_LIKE` token,
-prints the matching template and, with `--apply`, runs it. Required packages
-are strict: a failed core or AUR package aborts the phase and names the missing
-packages. Only explicit flags (`--no-system`, `--no-xwww`, `--no-pam`,
-`--no-font`, `--no-login`, `--no-nvidia`) skip a step. See
-[`system/README.md`](system/README.md).
+prints the matching template and, with `--apply`, runs it. The system phase runs
+before deploy: a failure leaves the existing dots deployment untouched. The
+Arch template resolves the full package set first, installs the core in one
+atomic pacman transaction, and retries the AUR transaction once. Only explicit
+flags (`--no-system`, `--no-xwww`, `--no-pam`, `--no-font`, `--no-login`,
+`--no-nvidia`) skip a step. See [`system/README.md`](system/README.md).
 
 The system phase also owns these integration steps:
 
