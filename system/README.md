@@ -51,12 +51,18 @@ Both are examples only. Copy one to `system/install-<your-id>.sh`, review the
 package list and adapt it. Use `. /etc/os-release` values (`ID`, `ID_LIKE`) to
 branch for derivatives; the resolver already falls back to `ID_LIKE`.
 
-AUR/COPR/third-party packages (`envycontrol` and `bibata-cursor-theme` on
-Arch; `mpvpaper` and `rofi-emoji` on Fedora) are installed separately and
-never fail the core transaction. The Arch template now also ensures an AUR helper the same way the
-Hyprland installer does: it prefers `paru`, then `yay`, and builds `yay` from
-the AUR with `git` + `base-devel` when neither is present. Package names drift
-between releases, so review the list for your distro before applying it.
+AUR/COPR/third-party packages (`mpvpaper`, `envycontrol` and
+`bibata-cursor-theme` on Arch; `mpvpaper` and `rofi-emoji` on Fedora) are
+installed separately and never fail the core transaction. `mpvpaper` is
+AUR-only on Arch and must stay in the optional group: one unknown pacman
+target aborts the whole core install. If the core transaction fails for any
+other reason, the Arch template retries every core package individually so
+essentials such as `qt6-multimedia` still land.
+
+The Arch template also ensures an AUR helper the same way the Hyprland
+installer does: it prefers `paru`, then `yay`, and builds `yay` from the AUR
+with `git` + `base-devel` when neither is present. Package names drift between
+releases, so review the list for your distro before applying it.
 
 `qt6-multimedia` (Fedora `qt6-qtmultimedia`) is part of the core list on
 purpose: the davincix wallpaper picker and video previews import

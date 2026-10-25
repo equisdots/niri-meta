@@ -52,7 +52,6 @@ PKGS=(
     slurp
     satty
     zbar
-    mpvpaper
     gpu-screen-recorder
 
     nautilus
@@ -99,8 +98,11 @@ PKGS=(
 )
 
 # AUR-only / optional packages. Installed through paru/yay (bootstrapped below
-# when missing) and never fatal: a missing package only warns.
+# when missing) and never fatal: a missing package only warns. `mpvpaper`
+# (video wallpapers) is AUR-only and must stay out of the core transaction,
+# because one unknown target makes pacman abort the whole install.
 OPTIONAL_PKGS=(
+    mpvpaper
     envycontrol
     bibata-cursor-theme
 )
@@ -180,7 +182,13 @@ ensure_aur_helper() {
 
 pacman_args=(--needed)
 (( ASSUME_YES )) && pacman_args+=(--noconfirm)
-sudo pacman -S "${pacman_args[@]}" "${PKGS[@]}"
+if ! sudo pacman -S "${pacman_args[@]}" "${PKGS[@]}"; then
+    printf 'Core transaction failed; retrying packages individually...\n' >&2
+    for pkg in "${PKGS[@]}"; do
+        sudo pacman -S "${pacman_args[@]}" "$pkg" 2>/dev/null \
+            || printf 'core package skipped: %s\n' "$pkg" >&2
+    done
+fi
 
 # Optional packages are never fatal: install them through the AUR helper when
 # available, otherwise fall back to the official repositories and warn.

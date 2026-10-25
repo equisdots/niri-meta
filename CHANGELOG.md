@@ -31,13 +31,16 @@ All notable changes to `niri-meta` are documented here. The format follows
   `rust`/`cargo` is in the Arch/Fedora package templates for the xtop build.
 - `system/install-arch.sh`: AUR-helper parity with the Hyprland installer. It
   prefers `paru`, then `yay`, and builds `yay` from the AUR with `git` +
-  `base-devel` when neither is present, so `envycontrol`/Bibata are installed
-  instead of skipped.
+  `base-devel` when neither is present, so `mpvpaper`, `envycontrol` and
+  Bibata are installed instead of skipped.
 - `system` package lists: `qt6-multimedia` (Fedora `qt6-qtmultimedia`) is now
   core because the davincix wallpaper picker and video previews import
-  `QtMultimedia`; the Arch/Fedora lists also gain `inotify-tools`, `mpvpaper`,
+  `QtMultimedia`; the Arch/Fedora lists also gain `inotify-tools`,
   `rofi-emoji`, `lm_sensors`, `iw`, `librsvg`, `xdg-utils`, `xdg-user-dirs`
-  and `pipewire-alsa`.
+  and `pipewire-alsa`. `mpvpaper` is AUR-only, so it lives in the optional
+  group and can never abort the core transaction. If the core transaction
+  still fails, every core package is retried individually so the essentials
+  (notably `qt6-multimedia`) are installed.
 - `doctor` now requires `inotifywait` and `socat`, and checks that the
   QtMultimedia QML module is installed (a missing module silently breaks the
   wallpaper picker).
