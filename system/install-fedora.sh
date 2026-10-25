@@ -76,6 +76,7 @@ PKGS=(
     starship
     zsh
     socat
+    cargo
 
     pipewire
     pipewire-pulseaudio

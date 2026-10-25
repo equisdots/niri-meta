@@ -106,8 +106,43 @@ system_install_login_theme() {
     fi
 }
 
+# SDDM/login and the shell share the Hack Nerd Font. The user-level copy is
+# installed by the app-config step; this installs it under /usr/share/fonts so
+# the greeter's shutdown/reboot glyphs do not render as boxes.
+system_install_font() {
+    local src="$HOME/.local/share/fonts/HackNerdFont-Regular.ttf"
+    local dst="/usr/share/fonts/HackNerdFont-Regular.ttf"
+    local url="https://raw.githubusercontent.com/xscriptor-colors/terminal/main/assets/fonts/HackNerdFont/HackNerdFont-Regular.ttf"
+    if [[ -f "$dst" ]] && cmp -s "$src" "$dst" 2>/dev/null; then
+        ok "Hack Nerd Font already installed system-wide"
+        return 0
+    fi
+    if [[ ! -f "$src" ]]; then
+        run mkdir -p "$(dirname "$src")"
+        if have curl; then
+            run curl -fsSL "$url" -o "$src" || true
+        elif have wget; then
+            run wget -q -O "$src" "$url" || true
+        fi
+    fi
+    if [[ ! -f "$src" ]]; then
+        warn "Hack Nerd Font not available; SDDM may show boxes for icons"
+        return 0
+    fi
+    if (( DRY_RUN )); then
+        msg "[dry-run] would install $src -> $dst (sudo) and run fc-cache"
+        return 0
+    fi
+    if as_root install -Dm644 "$src" "$dst"; then
+        as_root fc-cache -f >/dev/null 2>&1 || true
+        ok "Hack Nerd Font installed system-wide (SDDM/login)"
+    else
+        warn "could not install Hack Nerd Font system-wide"
+    fi
+}
+
 cmd_system() {
-    local apply=0 pam=auto xwww=auto login=0 args=() arg
+    local apply=0 pam=auto xwww=auto font=auto login=0 args=() arg
     for arg in "$@"; do
         case "$arg" in
             --apply)    apply=1 ;;
@@ -115,6 +150,8 @@ cmd_system() {
             --no-pam)   pam=no ;;
             --xwww)     xwww=yes ;;
             --no-xwww)  xwww=no ;;
+            --font)     font=yes ;;
+            --no-font)  font=no ;;
             --login)    login=1 ;;
             --no-login) login=0 ;;
             *)          args+=("$arg") ;;
@@ -180,6 +217,12 @@ cmd_system() {
             note "PAM: skipped; the lock screen will not accept passwords"
         fi
 
+        if [[ "$font" == no ]]; then
+            note "system font: skipped (--no-font)"
+        else
+            system_install_font || warn "font: system-wide install failed (non-fatal)"
+        fi
+
         if [[ "$login" -eq 1 ]]; then
             system_install_login_theme
         else
@@ -187,7 +230,7 @@ cmd_system() {
         fi
     else
         note "plan only: re-run with --apply to execute the template"
-        note "integration plan: xwww (pinned ${XWWW_PINNED_VERSION:-v0.13.1}), PAM (prompt), SDDM theme (only with --login)"
+        note "integration plan: xwww (pinned ${XWWW_PINNED_VERSION:-v0.13.1}), PAM (prompt), Hack Nerd Font (SDDM), SDDM theme (only with --login)"
         if [[ -n "$tpl" ]]; then
             if (( DRY_RUN )); then
                 note "[dry-run] would run: bash $tpl"

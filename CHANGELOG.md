@@ -6,36 +6,42 @@ All notable changes to `niri-meta` are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `install` now runs the niri repo's standalone app config installer,
+  including xtop (built from `xtop-cli/xtop` with cargo), the interactive
+  wallpaper scenes and Hack Nerd Font system-wide for SDDM. `DOTSNIRI_NO_APPS`
+  / `DOTSNIRI_NO_XTOP` / `DOTSNIRI_NO_SCENES` / `DOTSNIRI_NO_SYSTEM_FONT` skip
+  steps. `deploy`/`update` stay offline.
+- Own repo `plugins-niri`: niri-specific plugin implementations. The first is
+  `plugins/screenshots`, which keeps the standard plugin UI/bar contract but
+  calls `niri_screenshot.sh` / `niri_record.sh` directly. `deploy` prefers
+  `plugins-niri/plugins/<id>` over the shared hub and re-deploys the niri
+  plugins after the shell overlays, so an old `niri-shell` backup cannot
+  restore the Hyprland implementation.
+- `deploy` copies the interactive wallpaper scenes from the `background`
+  clone into `~/.config/hypr/wallpapers` on every deploy/update, so davincix
+  and the wallpaper picker are never empty after a fresh install.
+- `deploy` installs rofi/cava from the niri repo (`config/apps/`) instead of
+  consuming `hyprland/config/rofi`. Existing dirs are backed up under
+  `~/.local/state/equisdots-niri/backups/{rofi,cava}-*`.
+- `doctor` checks cava, the wallpaper directory, the system-wide Hack Nerd
+  Font and xtop.
+- `system` installs Hack Nerd Font system-wide for SDDM (`--no-font` skips).
+  `rust`/`cargo` is in the Arch/Fedora package templates for the xtop build.
+
 ### Fixed
 
 - `deploy`: a fresh `settings.json` is now merged after seeding instead of
   returning early, so the shipped `wallpaperDir: "~/.config/hypr/wallpapers"`
-  is expanded to `$HOME` on the first install. Previously the shell received a
-  literal `~` and the wallpaper picker/apply could fail until a second deploy.
-
-### Added
-
-- `install` now runs the niri repo's standalone app config installer
-  (kitty/starship/nvim/Hack Nerd Font) after the deploy. `DOTSNIRI_NO_APPS=1`
-  skips it; `deploy`/`update` stay offline.
-- `deploy` installs rofi/cava from the niri repo (`config/apps/`) instead of
-  consuming `hyprland/config/rofi`, removing the last config dependency on the
-  Hyprland repository. Existing dirs are backed up under
-  `~/.local/state/equisdots-niri/backups/{rofi,cava}-*`.
-
-### Fixed
-
+  is expanded to `$HOME` on the first install.
 - `deploy`: seed `~/.config/niri/generated/env.kdl` with literal HOME-derived
-  paths and the appScale block (the niri repo moved the single-occurrence
-  `environment {}` section there). Without this a meta-only install had no
-  PATH/WALLPAPER_DIR/XDG_* in the niri session.
+  paths and the appScale block.
 - `repos`: pull every shared repo the stack consumes read-only (palettes,
-  theme-sync, davincix, login, background and the shared scripts), so a
-  standalone `dotsniri` install receives the same updates as `dots`; local
+  theme-sync, davincix, login, background and the shared scripts); local
   changes are never discarded.
 - `system/install-arch.sh`: use the real Arch package name `adw-gtk-theme` and
-  move `bibata-cursor-theme` to the optional/AUR group so a missing AUR
-  package cannot fail the core pacman transaction.
+  move `bibata-cursor-theme` to the optional/AUR group.
 
 ## [0.3.0] - 2026-10-24
 

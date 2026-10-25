@@ -65,7 +65,7 @@ cmd_deploy() {
     # handled last so a base/plugin deploy can never wipe them).
     while IFS= read -r name; do
         case "$name" in
-            hyprland|shell|nyx|timex|plugin-api|plugin-sdk|plugins|niri-shell|nyx-niri) continue ;;
+            hyprland|shell|nyx|timex|plugin-api|plugin-sdk|plugins|plugins-niri|niri-shell|nyx-niri) continue ;;
         esac
         deploy_repo "$name"
     done < <(repos_all)
@@ -73,6 +73,11 @@ cmd_deploy() {
     # Phase 4: overlays last (after the plugin UI tree exists).
     deploy_repo niri-shell
     deploy_repo nyx-niri
+
+    # Phase 5: niri-specific plugin overrides win over any baseline restored
+    # by an old overlay manifest (the screenshots plugin used to live in
+    # niri-shell; the migration must not bring the Hyprland UI back).
+    deploy_niri_plugin_overrides
 
     write_version_state
     ok "deploy finished"
@@ -141,6 +146,7 @@ deploy_repo() {
         plugin-api)  deploy_plugin_api "$path" ;;
         plugin-sdk)  deploy_plugin_sdk "$path" ;;
         plugins)     deploy_plugins_registry "$path" ;;
+        plugins-niri) note "plugins-niri: deployed through the plugin convention" ;;
         nyx)         deploy_plugin "$path" ;;
         palettes)    deploy_palettes "$path" ;;
         theme-sync)  deploy_wrapper theme-sync "$path/theme-sync.sh" ;;
@@ -275,6 +281,7 @@ deploy_niri() {
     fi
 
     deploy_niri_apps "$path"
+    deploy_niri_scenes "$path"
     deploy_niri_units "$path"
     deploy_niri_portal "$path"
     ok "niri deployed"
@@ -287,6 +294,27 @@ deploy_niri_apps() {
     [[ -d "$apps/rofi" ]] && deploy_rofi "$apps/rofi"
     [[ -d "$apps/cava" ]] && deploy_cava "$apps/cava"
     return 0
+}
+
+# Interactive wallpaper scenes from the shared background clone. They are
+# copied into the davincix wallpaper directory on every deploy, so a fresh or
+# updated niri install never has an empty wallpaper picker. Still-image packs
+# are optional downloads (WALLPAPERS_PACK / wallpapers.sh).
+deploy_niri_scenes() {
+    local path="$1" bg scenes dest count=0 d name
+    bg="$(repo_path background 2>/dev/null || true)"
+    scenes="$bg/scenes"
+    dest="$HYPR/wallpapers"
+    [[ -d "$scenes" ]] || { note "background scenes not found; skipping"; return 0; }
+    msg "niri: wallpaper scenes -> $dest"
+    run mkdir -p "$dest"
+    for d in "$scenes"/*/; do
+        [[ -f "$d/scene.js" ]] || continue
+        name="$(basename "$d")"
+        run rsync -a --delete "$d" "$dest/$name/"
+        count=$((count + 1))
+    done
+    ok "wallpaper scenes deployed ($count)"
 }
 
 # Optional user units. They are copied, never enabled: the niri autostart
@@ -458,7 +486,7 @@ install_niri_app_configs() {
     fi
     local args=()
     (( ASSUME_YES )) && args+=("-y")
-    msg "app configs: kitty, starship, nvim, Hack Nerd Font"
+    msg "app configs: kitty, starship, nvim, xtop, scenes, Hack Nerd Font"
     bash "$script" "${args[@]}" || warn "app configs finished with warnings"
 }
 
@@ -581,7 +609,12 @@ LAUNCH
 # Resolve an installed-plugin source: a root-level plugin repo (nyx, timex) or
 # a folder in the plugin hub (plugins/plugins/<id>).
 plugin_source_dir() {
-    local id="$1" hub
+    local id="$1" hub niri_plugins
+    niri_plugins="$(repo_path plugins-niri 2>/dev/null || true)"
+    if [[ -n "$niri_plugins" && -f "$niri_plugins/plugins/$id/plugin.json" ]]; then
+        printf '%s' "$niri_plugins/plugins/$id"
+        return 0
+    fi
     case "$id" in
         nyx|timex) repo_path "$id"; return 0 ;;
     esac
@@ -600,6 +633,20 @@ deploy_default_plugins() {
         fi
         deploy_plugin "$src"
     done
+}
+
+# Re-deploy the niri-owned plugins after the overlays. This is the migration
+# path for files that used to live in niri-shell (screenshots): overlay_remove
+# restores its baseline backup, and the niri plugin must replace it again.
+deploy_niri_plugin_overrides() {
+    local root d
+    root="$(repo_path plugins-niri 2>/dev/null || true)"
+    [[ -n "$root" && -d "$root/plugins" ]] || return 0
+    for d in "$root/plugins"/*/; do
+        [[ -f "$d/plugin.json" ]] || continue
+        deploy_plugin "$d"
+    done
+    return 0
 }
 
 # Canonical defaults: prefer the shared hyprland clone (kept current by

@@ -21,6 +21,7 @@ REPO_SPECS=(
     "own|equisdots|niri-shell"
     "own|equisdots|nyx-niri"
     "own|equisdots|niri-login"
+    "own|equisdots|plugins-niri"
     "shared|equisdots|hyprland"
     "shared|equisdots|shell"
     "shared|equisdots|plugin-api"
