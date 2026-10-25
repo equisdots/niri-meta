@@ -6,6 +6,13 @@ All notable changes to `niri-meta` are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- `deploy`: a fresh `settings.json` is now merged after seeding instead of
+  returning early, so the shipped `wallpaperDir: "~/.config/hypr/wallpapers"`
+  is expanded to `$HOME` on the first install. Previously the shell received a
+  literal `~` and the wallpaper picker/apply could fail until a second deploy.
+
 ### Added
 
 - `install` now runs the niri repo's standalone app config installer
