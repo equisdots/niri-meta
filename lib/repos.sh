@@ -170,6 +170,18 @@ ensure_repo() {
     fi
 }
 
+# reset drops the own clones and re-clones from GitHub. Refuse to start when
+# GitHub is unreachable: otherwise an offline reset deletes the deployment and
+# cannot reinstall it.
+reset_network_ok() {
+    local name
+    for name in niri niri-shell nyx-niri niri-login plugins-niri; do
+        GIT_TERMINAL_PROMPT=0 timeout 15 git ls-remote --heads \
+            "https://github.com/equisdots/$name.git" >/dev/null 2>&1 || return 1
+    done
+    return 0
+}
+
 # ── Commands ────────────────────────────────────────────────────────────────
 
 cmd_install() {

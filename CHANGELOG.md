@@ -32,6 +32,10 @@ All notable changes to `niri-meta` are documented here. The format follows
 
 ### Fixed
 
+- `reset` is now offline-safe: it checks GitHub reachability before deleting
+  anything, snapshots the deployed shell/config/settings under
+  `~/.local/state/equisdots-niri/backups/reset-*`, and restores that snapshot
+  if the reinstall step fails.
 - Offline/incomplete updates are now fail-safe: `install` and `update` abort
   before deploying if a required repo cannot be obtained, `deploy` refuses to
   run with a missing/incomplete or dirty managed clone, `deploy_shell` verifies

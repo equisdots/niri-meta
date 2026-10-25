@@ -972,9 +972,36 @@ undeploy_niri() {
     ok "niri: deployed config files removed"
 }
 
+snapshot_reset_state() {
+    local backup="$STATE/backups/reset-$(date +%Y%m%d_%H%M%S)"
+    run mkdir -p "$backup"
+    [[ -d "$QS" ]] && run cp -a "$QS" "$backup/quickshell"
+    [[ -d "$NIRI_CFG" ]] && run cp -a "$NIRI_CFG" "$backup/niri"
+    [[ -f "$HYPR/settings.json" ]] && run cp -a "$HYPR/settings.json" "$backup/settings.json"
+    RESET_SNAPSHOT="$backup"
+    ok "reset snapshot -> $backup"
+    ls -1dt "$STATE"/backups/reset-* 2>/dev/null | tail -n +4 | while IFS= read -r old; do
+        run rm -rf "$old"
+    done
+}
+
+restore_reset_state() {
+    local backup="$1"
+    [[ -n "$backup" && -d "$backup" ]] || return 1
+    [[ -d "$backup/quickshell" ]] && { run mkdir -p "$QS"; run cp -a "$backup/quickshell/." "$QS/"; }
+    [[ -d "$backup/niri" ]] && { run mkdir -p "$NIRI_CFG"; run cp -a "$backup/niri/." "$NIRI_CFG/"; }
+    [[ -f "$backup/settings.json" ]] && run cp -a "$backup/settings.json" "$HYPR/settings.json"
+    return 0
+}
+
 cmd_reset() {
     confirm "Reset the niri deploy and reinstall from origin/main? User data is preserved." \
         || { warn "aborted"; return 0; }
+    if ! reset_network_ok; then
+        die "reset aborted: GitHub is unreachable. The current installation was left untouched."
+    fi
+    RESET_SNAPSHOT=""
+    snapshot_reset_state
     overlay_remove_all
     undeploy_niri
     # Managed plugin payload (the user's plugins-user/ is never touched).
@@ -997,7 +1024,14 @@ cmd_reset() {
         fi
     done < <(repos_all)
 
-    cmd_install
+    if ! ( cmd_install ); then
+        if restore_reset_state "$RESET_SNAPSHOT"; then
+            warn "reset install failed; restored the pre-reset shell/config snapshot"
+        else
+            warn "reset install failed; snapshot kept at ${RESET_SNAPSHOT:-$STATE/backups}"
+        fi
+        die "reset failed; the previous desktop payload was restored where possible"
+    fi
     ok "reset finished"
 }
 
