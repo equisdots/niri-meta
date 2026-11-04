@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Rename the shared wallpaper kernel to `equisdots/davinci`; migrate existing `davincix` clones during install/update and remove the stale clone on reset.
+- Rename the shared wallpaper kernel to `equisdots/davinci`; migrate existing `davinci` clones during install/update and remove the stale clone on reset.
 
 All notable changes to `niri-meta` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
