@@ -92,17 +92,6 @@ clone_repo() {
 
     [[ -d "$path/.git" ]] && return 0
 
-    # Follow the repository rename without cloning a second copy on existing
-    # installations. The old remote redirects to equisdots/davinci on GitHub.
-    if [[ "$name" == "davinci" && ! -e "$path" ]]; then
-        local old_path="$root/davincix"
-        if [[ -d "$old_path/.git" ]]; then
-            run mv "$old_path" "$path"
-            ok "davinci: migrated clone from davincix"
-            return 0
-        fi
-    fi
-
     # An existing non-git copy (manual install) is parked instead of failing.
     if [[ -e "$path" ]]; then
         warn "$name: $path is not a git clone; parking it as $name.pre-dotsniri"

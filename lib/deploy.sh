@@ -183,8 +183,7 @@ deploy_repo() {
         nyx)         deploy_plugin "$path" ;;
         palettes)    deploy_palettes "$path" ;;
         theme-sync)  deploy_wrapper theme-sync "$path/theme-sync.sh" ;;
-        davinci)     deploy_wrapper davinci "$path/davinci.sh"
-                     deploy_wrapper davincix "$path/davincix.sh" ;;
+        davinci)     deploy_wrapper davinci "$path/davinci.sh" ;;
         timex)       note "timex: shipped as a default plugin (deploy_default_plugins)" ;;
         login)       note "login: SDDM theme is installed system-wide by 'dotsniri system' (or 'dots system')" ;;
         background)  note "background: wallpaper scenes are consumed by davinci/xwww (no deploy step)" ;;
@@ -1042,13 +1041,6 @@ cmd_reset() {
         fi
     done < <(repos_all)
 
-    # The old shared checkout is no longer managed; remove it so reset leaves
-    # only the canonical davinci clone.
-    if [[ -d "${BASE_SHARED:-}/davincix" ]]; then
-        run rm -rf "${BASE_SHARED}/davincix"
-        ok "davincix: stale shared clone dropped"
-    fi
-
     if ! ( cmd_install "${install_args[@]}" ); then
         if restore_reset_state "$RESET_SNAPSHOT"; then
             warn "reset install failed; restored the pre-reset shell/config snapshot"
@@ -1068,7 +1060,7 @@ cmd_uninstall() {
     remove_session_file
     remove_marker_wrapper dotsniri
     local w
-    for w in theme-sync davinci davincix timex; do
+    for w in theme-sync davinci timex; do
         remove_marker_wrapper "$w"
     done
     ok "uninstall finished (clones under $BASE_NIRI are kept)"

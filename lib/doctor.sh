@@ -188,7 +188,7 @@ check_system_tools() {
     fi
 }
 
-# DavincixPicker.qml and DavincixCard.qml import QtMultimedia. A missing QML
+# DavinciPicker.qml and DavinciCard.qml import QtMultimedia. A missing QML
 # module makes StackView.replace fail and the wallpaper picker never renders,
 # so this is a hard check, not a package-name check.
 check_qt_multimedia() {
