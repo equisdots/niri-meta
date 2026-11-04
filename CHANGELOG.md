@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Rename the shared wallpaper kernel to `equisdots/davinci`; migrate existing `davincix` clones during install/update and remove the stale clone on reset.
+
 All notable changes to `niri-meta` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -43,7 +47,7 @@ All notable changes to `niri-meta` are documented here. The format follows
   plugins after the shell overlays, so an old `niri-shell` backup cannot
   restore the Hyprland implementation.
 - `deploy` copies the interactive wallpaper scenes from the `background`
-  clone into `~/.config/hypr/wallpapers` on every deploy/update, so davincix
+  clone into `~/.config/hypr/wallpapers` on every deploy/update, so davinci
   and the wallpaper picker are never empty after a fresh install.
 - `deploy` installs rofi/cava from the niri repo (`config/apps/`) instead of
   consuming `hyprland/config/rofi`. Existing dirs are backed up under
@@ -57,7 +61,7 @@ All notable changes to `niri-meta` are documented here. The format follows
   `base-devel` when neither is present, so `mpvpaper`, `envycontrol` and
   Bibata are installed instead of skipped.
 - `system` package lists: `qt6-multimedia` (Fedora `qt6-qtmultimedia`) is now
-  core because the davincix wallpaper picker and video previews import
+  core because the davinci wallpaper picker and video previews import
   `QtMultimedia`; the Arch/Fedora lists also gain `inotify-tools`,
   `rofi-emoji`, `lm_sensors`, `iw`, `librsvg`, `xdg-utils`, `xdg-user-dirs`
   and `pipewire-alsa`. `mpvpaper` is AUR-only, so it lives in the optional
@@ -72,7 +76,7 @@ All notable changes to `niri-meta` are documented here. The format follows
 
 - `deploy`/`generated/env.kdl`: the wallpaper directory is resolved from
   `settings.json.wallpaperDir` (with `~` expansion) instead of assuming
-  `~/.config/hypr/wallpapers`, so scenes and davincix use the same directory
+  `~/.config/hypr/wallpapers`, so scenes and davinci use the same directory
   the picker reads.
 - `reset` is now offline-safe: it checks GitHub reachability before deleting
   anything, snapshots the deployed shell/config/settings under
@@ -91,7 +95,7 @@ All notable changes to `niri-meta` are documented here. The format follows
 - `deploy`: seed `~/.config/niri/generated/env.kdl` with literal HOME-derived
   paths and the appScale block.
 - `repos`: pull every shared repo the stack consumes read-only (palettes,
-  theme-sync, davincix, login, background and the shared scripts); local
+  theme-sync, davinci, login, background and the shared scripts); local
   changes are never discarded.
 - `system/install-arch.sh`: use the real Arch package name `adw-gtk-theme` and
   move `bibata-cursor-theme` to the optional/AUR group.
@@ -255,7 +259,7 @@ All notable changes to `niri-meta` are documented here. The format follows
 - Modular library layout: `lib/{common,repos,deploy,desktop,doctor,system}.sh`
   behind the thin `bin/dotsniri` entry point.
 - Repo registry with explicit `own` (niri, niri-shell, niri-meta) and `shared`
-  (palettes, theme-sync, davincix, timex, login, background) kinds; shared
+  (palettes, theme-sync, davinci, timex, login, background) kinds; shared
   clones are consumed read-only from the `equisdots` clone root.
 - Deploy map: `niri` -> `~/.config/niri`, `niri-shell` overlay ->
   `~/.config/hypr/scripts/quickshell` (conditional merge), shared palettes ->

@@ -17,10 +17,10 @@
 #                                  ~/.config/hypr/plugins/<id>
 #   palettes      *.json        -> .../quickshell/dock/palettes (cp -f)
 #   theme-sync    wrapper       -> ~/.local/bin/theme-sync   (if missing)
-#   davincix      wrapper       -> ~/.local/bin/davincix     (if missing)
+#   davinci       wrapper       -> ~/.local/bin/davinci{,x}  (if missing)
 #   timex         default plugin (see <plugin> above)
 #   login         system-wide   -> handled by the system hook
-#   background    no deploy     -> consumed by davincix/xwww
+#   background    no deploy     -> consumed by davinci/xwww
 #
 # Coexistence rule: a shared file is only replaced by a niri-only variant when
 # the niri session is selected. The overlay engine backs up every file it
@@ -183,10 +183,11 @@ deploy_repo() {
         nyx)         deploy_plugin "$path" ;;
         palettes)    deploy_palettes "$path" ;;
         theme-sync)  deploy_wrapper theme-sync "$path/theme-sync.sh" ;;
-        davincix)    deploy_wrapper davincix "$path/davincix.sh" ;;
+        davinci)     deploy_wrapper davinci "$path/davinci.sh"
+                     deploy_wrapper davincix "$path/davincix.sh" ;;
         timex)       note "timex: shipped as a default plugin (deploy_default_plugins)" ;;
         login)       note "login: SDDM theme is installed system-wide by 'dotsniri system' (or 'dots system')" ;;
-        background)  note "background: wallpaper scenes are consumed by davincix/xwww (no deploy step)" ;;
+        background)  note "background: wallpaper scenes are consumed by davinci/xwww (no deploy step)" ;;
     esac
 }
 
@@ -342,7 +343,7 @@ deploy_niri_apps() {
 }
 
 # Interactive wallpaper scenes from the shared background clone. They are
-# copied into the davincix wallpaper directory on every deploy, so a fresh or
+# copied into the davinci wallpaper directory on every deploy, so a fresh or
 # updated niri install never has an empty wallpaper picker. Still-image packs
 # are optional downloads (WALLPAPERS_PACK / wallpapers.sh).
 deploy_niri_scenes() {
@@ -1041,6 +1042,13 @@ cmd_reset() {
         fi
     done < <(repos_all)
 
+    # The old shared checkout is no longer managed; remove it so reset leaves
+    # only the canonical davinci clone.
+    if [[ -d "${BASE_SHARED:-}/davincix" ]]; then
+        run rm -rf "${BASE_SHARED}/davincix"
+        ok "davincix: stale shared clone dropped"
+    fi
+
     if ! ( cmd_install "${install_args[@]}" ); then
         if restore_reset_state "$RESET_SNAPSHOT"; then
             warn "reset install failed; restored the pre-reset shell/config snapshot"
@@ -1060,7 +1068,7 @@ cmd_uninstall() {
     remove_session_file
     remove_marker_wrapper dotsniri
     local w
-    for w in theme-sync davincix timex; do
+    for w in theme-sync davinci davincix timex; do
         remove_marker_wrapper "$w"
     done
     ok "uninstall finished (clones under $BASE_NIRI are kept)"

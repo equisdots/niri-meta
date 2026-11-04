@@ -99,7 +99,7 @@ shared clone never edits it.
 | shared | [nyx](https://github.com/equisdots/nyx) | mascot island plugin (deployed as a root-level plugin; base for the nyx-niri overlay) |
 | shared | [palettes](https://github.com/equisdots/palettes) | base16 palette data + schema |
 | shared | [theme-sync](https://github.com/equisdots/theme-sync) | cross-app theming engine |
-| shared | [davincix](https://github.com/equisdots/davincix) | wallpaper kernel |
+| shared | [davinci](https://github.com/equisdots/davinci) | wallpaper kernel |
 | shared | [timex](https://github.com/equisdots/timex) | time/weather plugin (default plugin set) |
 | shared | [login](https://github.com/equisdots/login) | static SDDM greeter |
 | shared | [background](https://github.com/equisdots/background) | wallpaper scenes |
@@ -127,7 +127,7 @@ never wipe an applied overlay:
 | `niri` `portals/niri-portals.conf` | `~/.config/xdg-desktop-portal/niri-portals.conf` | per-user portal backend selection, no sudo |
 | `hyprland` `scripts/*.sh` | `~/.config/hypr/scripts/` | shared helpers (`qs_manager`, `lock`, `volume`, `brightness`, `reload`, `init`, listeners); no `--delete` |
 | `plugins-niri` `plugins/<id>` | `$QS/ui/plugins/<id>` + `~/.config/hypr/plugins/<id>` | niri plugin overrides; re-deployed after the overlays |
-| `background` `scenes/` | `~/.config/hypr/wallpapers/` | interactive wallpaper scenes for davincix; refreshed on every deploy |
+| `background` `scenes/` | `~/.config/hypr/wallpapers/` | interactive wallpaper scenes for davinci; refreshed on every deploy |
 | `niri` `config/apps/rofi/` + `cava/` | `~/.config/rofi/` + `~/.config/cava/` | copied when missing/changed; an existing dir is backed up under `~/.local/state/equisdots-niri/backups/{rofi,cava}-*` |
 | `install` app configs | `~/.local/bin/xtop`, `~/.local/bin/xfetch`, `~/.config/xtop`, `~/.config/xfetch`, `~/.local/share/fonts` | xtop and xfetch from their latest releases, Hack Nerd Font (system-wide for SDDM) and the wallpaper scenes; `DOTSNIRI_NO_*` skip flags |
 | `hyprland` `config/pam.d/quickshell` | `/etc/pam.d/quickshell` | system phase only, sudo, prompt/`--pam`, backs up an existing service |
@@ -142,10 +142,10 @@ never wipe an applied overlay:
 | `nyx-niri` overlay | `~/.config/hypr/scripts/quickshell/ui/plugins/nyx/` | conditional merge; compositor-neutral mascot island |
 | `palettes` `*.json`, `community/` | `.../quickshell/dock/palettes/` | `cp -f`, user palettes and editor edits survive |
 | `theme-sync` | `~/.local/bin/theme-sync` | only installed if missing |
-| `davincix` | `~/.local/bin/davincix` | only installed if missing |
+| `davinci` | `~/.local/bin/davinci` | only installed if missing |
 | `login` | system SDDM theme | system phase; auto when SDDM is active, `--login` forces a switch, `--no-login` skips |
 | `login` | system `wayland-sessions/niri.desktop` | installed by `dotsniri login` (sudo); skipped if the distro provides one |
-| `background` | none | consumed by davincix / xwww at runtime |
+| `background` | none | consumed by davinci / xwww at runtime |
 | this repo | `~/.local/bin/dotsniri` | always refreshed |
 
 ### Settings merge
@@ -185,7 +185,7 @@ replaced by a niri-only variant unless the niri session is selected.
   (`~/.local/share/equisdots-niri`). A parallel `dots` install under
   `~/.local/share/equisdots` is never modified.
 - Shared repos (`hyprland`, `shell`, `plugin-api`, `plugin-sdk`, `plugins`,
-  `nyx`, `palettes`, `theme-sync`, `davincix`, `timex`, `login`, `background`)
+  `nyx`, `palettes`, `theme-sync`, `davinci`, `timex`, `login`, `background`)
   are cloned if missing; the `hyprland` scripts and the shell/plugin bases
   are deployed, so `dotsniri` works standalone without `dots`. The shared
   `hyprland`, `shell` and `nyx` clones are kept current by `dotsniri` (they are
