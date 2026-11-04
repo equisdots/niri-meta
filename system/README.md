@@ -79,7 +79,7 @@ with `git` + `base-devel` when neither is present. Package names drift between
 releases, so review the list for your distro before applying it.
 
 `qt6-multimedia` (Fedora `qt6-qtmultimedia`) is part of the core list on
-purpose: the davincix wallpaper picker and video previews import
+purpose: the davinci wallpaper picker and video previews import
 `QtMultimedia`, and without the QML module the picker fails to load entirely.
 
 ## What the core deliberately does not do

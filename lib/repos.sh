@@ -30,7 +30,7 @@ REPO_SPECS=(
     "shared|equisdots|nyx"
     "shared|equisdots|palettes"
     "shared|equisdots|theme-sync"
-    "shared|equisdots|davincix"
+    "shared|equisdots|davinci"
     "shared|equisdots|timex"
     "shared|equisdots|login"
     "shared|equisdots|background"
@@ -91,6 +91,17 @@ clone_repo() {
     path="$root/$name"
 
     [[ -d "$path/.git" ]] && return 0
+
+    # Follow the repository rename without cloning a second copy on existing
+    # installations. The old remote redirects to equisdots/davinci on GitHub.
+    if [[ "$name" == "davinci" && ! -e "$path" ]]; then
+        local old_path="$root/davincix"
+        if [[ -d "$old_path/.git" ]]; then
+            run mv "$old_path" "$path"
+            ok "davinci: migrated clone from davincix"
+            return 0
+        fi
+    fi
 
     # An existing non-git copy (manual install) is parked instead of failing.
     if [[ -e "$path" ]]; then
@@ -156,7 +167,7 @@ ensure_repo() {
     kind="$(repo_kind "$name")"
     if [[ -d "$(repo_path "$name")/.git" ]]; then
         case "$name" in
-            hyprland|shell|nyx|plugin-api|plugin-sdk|plugins|timex|palettes|theme-sync|davincix|login|background) pull_repo "$name" ;;
+            hyprland|shell|nyx|plugin-api|plugin-sdk|plugins|timex|palettes|theme-sync|davinci|login|background) pull_repo "$name" ;;
             *)
                 if [[ "$kind" == own ]]; then
                     pull_repo "$name"
