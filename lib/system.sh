@@ -266,7 +266,7 @@ cmd_system() {
         return 0
     else
         note "plan only: re-run with --apply to execute the template"
-        note "integration plan: xwww (pinned ${XWWW_PINNED_VERSION:-v0.13.1}), NVIDIA (detect/offer on Arch), PAM (prompt), Hack Nerd Font (SDDM), SDDM theme (auto when SDDM is active; --login forces it, --no-login skips)"
+        note "integration plan: xwww (pinned ${XWWW_PINNED_VERSION:-v0.13.2}), NVIDIA (detect/offer on Arch), PAM (prompt), Hack Nerd Font (SDDM), SDDM theme (auto when SDDM is active; --login forces it, --no-login skips)"
         if [[ -n "$tpl" ]]; then
             if (( DRY_RUN )); then
                 note "[dry-run] would run: bash $tpl"
