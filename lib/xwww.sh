@@ -15,7 +15,7 @@
 
 # Pinned release; XWWW_VERSION overrides it (same contract as the hyprland
 # installer and dots/scripts/install-xwww.sh).
-XWWW_PINNED_VERSION="v0.13.1"
+XWWW_PINNED_VERSION="v0.13.2"
 
 xwww_wanted_version() {
     printf '%s' "${XWWW_VERSION:-$XWWW_PINNED_VERSION}"
